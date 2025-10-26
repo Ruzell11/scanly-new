@@ -1,11 +1,12 @@
 # ============================================
-# FILE: routers/employer.py (COMPLETE UPDATE)
+# FILE: routers/employer.py (WITH EMAIL ENDPOINT)
 # ============================================
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc, asc
 from typing import List, Optional
 from datetime import datetime, timedelta
+from pydantic import BaseModel, EmailStr
 
 from database import get_db
 from models import Job, Application, User, Company
@@ -16,8 +17,28 @@ from schemas import (
 )
 from auth import check_employer
 from utils import generate_apply_link
+from config import settings
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/employer", tags=["Employer"])
+
+
+# ============================================
+# EMAIL SCHEMAS
+# ============================================
+
+class SendEmailRequest(BaseModel):
+    subject: str
+    message: str
+    recipient_email: EmailStr
+    recipient_name: str
+
+
+class SendEmailResponse(BaseModel):
+    success: bool
+    message: str
 
 
 # ============================================
@@ -127,7 +148,7 @@ def delete_job_post(
 
 
 # ============================================
-# CANDIDATES/APPLICATION ENDPOINTS (NEW)
+# CANDIDATES/APPLICATION ENDPOINTS
 # ============================================
 
 @router.get("/candidates", response_model=List[CandidateListResponse])
@@ -145,7 +166,6 @@ def get_all_candidates(
     Get all candidates/applications for the employer's company
     This is the main endpoint for the candidates page
     """
-    # Debug: Log the request
     print(f"[DEBUG] Fetching candidates for company_id: {current_user.company_id}")
 
     if not current_user.company_id:
@@ -171,7 +191,6 @@ def get_all_candidates(
         Application.id,
         Application.applicant_name.label('full_name'),
         Application.applicant_email.label('email'),
-
         Application.job_id,
         Job.title.label('job_title'),
         Application.status,
@@ -226,7 +245,6 @@ def get_all_candidates(
             "status": c.status,
             "ai_score": c.ai_score,
             "applied_at": c.applied_at,
-
         }
         for c in candidates
     ]
@@ -234,109 +252,114 @@ def get_all_candidates(
     print(f"[DEBUG] Returning {len(result)} candidates")
     return result
 
+
 @router.get("/candidates/{candidate_id}", response_model=CandidateDetailResponse)
 def get_candidate_details(
         candidate_id: int,
         current_user: User = Depends(check_employer),
         db: Session = Depends(get_db)
 ):
-    """
-    Get detailed information about a specific candidate
-    Used when clicking "View Details" on a candidate
-    """
-    # Verify the application belongs to a job in the employer's company
-    application = db.query(Application).join(Job).filter(
-        Application.id == candidate_id,
-        Job.company_id == current_user.company_id
-    ).options(joinedload(Application.job)).first()
+    """Get detailed information about a specific candidate/application"""
+    application = db.query(Application).filter(Application.id == candidate_id).first()
 
     if not application:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    # Get company info
-    company = db.query(Company).filter(Company.id == application.job.company_id).first()
+    # Verify the application belongs to a job in user's company
+    job = db.query(Job).filter(
+        Job.id == application.job_id,
+        Job.company_id == current_user.company_id
+    ).first()
+
+    if not job:
+        raise HTTPException(status_code=403, detail="Not authorized to view this candidate")
 
     return {
         "id": application.id,
         "full_name": application.applicant_name,
         "email": application.applicant_email,
-
-        "job_id": application.job_id,
-        "job_title": application.job.title,
-        "cover_letter": application.cover_letter,
+        "phone": application.applicant_phone,
         "resume_url": application.resume_url,
-        "ai_score": application.ai_score,
-        "ai_feedback": application.ai_feedback,
-
+        "cover_letter": application.cover_letter,
         "status": application.status,
         "applied_at": application.applied_at,
-        "updated_at": application.updated_at,
-
-        "employer_notes": application.employer_notes,
-        "company_name": company.name if company else "Unknown",
-        "company_id": application.job.company_id
+        "job_id": application.job_id,
+        "job_title": job.title,
+        "experience_years": application.experience_years,
+        "education": application.education,
+        "location": application.location,
+        "skills": application.skills,
+        "ai_score": application.ai_score,
+        "ai_summary": application.ai_analysis
     }
 
 
-@router.put("/candidates/{candidate_id}/status")
+@router.put("/candidates/{candidate_id}/status", response_model=dict)
 def update_candidate_status(
-    candidate_id: int,
-    status_update: ApplicationStatusUpdate,
-    current_user: User = Depends(check_employer),
-    db: Session = Depends(get_db)
+        candidate_id: int,
+        status_update: ApplicationStatusUpdate,
+        current_user: User = Depends(check_employer),
+        db: Session = Depends(get_db)
 ):
-    """
-    Update the status of a candidate's application.
-    Called when employer changes status in the UI.
-    """
-
-    # Ensure the application belongs to a job under this employer's company
-    application = db.query(Application).join(Job).filter(
-        Application.id == candidate_id,
-        Job.company_id == current_user.company_id
-    ).first()
+    """Update the status of a candidate/application"""
+    application = db.query(Application).filter(Application.id == candidate_id).first()
 
     if not application:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    # Track old status for audit or logging
-    old_status = application.status
+    # Verify the application belongs to a job in user's company
+    job = db.query(Job).filter(
+        Job.id == application.job_id,
+        Job.company_id == current_user.company_id
+    ).first()
 
-    # Update the status and feedback fields
+    if not job:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Update status
     application.status = status_update.status
-    application.ai_feedback = status_update.notes or application.ai_feedback
     application.updated_at = datetime.utcnow()
 
+    # Update notes if provided
+    if status_update.notes:
+        application.employer_notes = status_update.notes
+
     db.commit()
-    db.refresh(application)
 
     return {
-        "message": "Candidate status updated successfully",
-        "candidate_id": candidate_id,
-        "old_status": old_status,
-        "new_status": application.status,
-        "updated_at": application.updated_at
+        "message": "Status updated successfully",
+        "status": application.status,
+        "candidate_id": candidate_id
     }
 
 
-@router.post("/candidates/bulk-status")
-def bulk_update_status(
+@router.post("/candidates/bulk-update", response_model=dict)
+def bulk_update_candidates(
         bulk_update: BulkStatusUpdate,
         current_user: User = Depends(check_employer),
         db: Session = Depends(get_db)
 ):
-    """
-    Update status for multiple candidates at once
-    Used for bulk actions in the UI
-    """
-    # Verify all applications belong to jobs in the employer's company
-    applications = db.query(Application).join(Job).filter(
-        Application.id.in_(bulk_update.application_ids),
+    """Update status for multiple candidates at once"""
+    if not bulk_update.candidate_ids:
+        raise HTTPException(status_code=400, detail="No candidate IDs provided")
+
+    # Get all applications
+    applications = db.query(Application).filter(
+        Application.id.in_(bulk_update.candidate_ids)
+    ).all()
+
+    if not applications:
+        raise HTTPException(status_code=404, detail="No candidates found")
+
+    # Verify all applications belong to jobs in user's company
+    job_ids = [app.job_id for app in applications]
+    jobs = db.query(Job).filter(
+        Job.id.in_(job_ids),
         Job.company_id == current_user.company_id
     ).all()
 
-    if len(applications) != len(bulk_update.application_ids):
-        raise HTTPException(status_code=404, detail="Some candidates not found")
+    if len(jobs) != len(set(job_ids)):
+        raise HTTPException(status_code=403, detail="Not authorized to update some candidates")
 
     updated_count = 0
     for application in applications:
@@ -426,6 +449,237 @@ def get_candidate_stats(
 
 
 # ============================================
+# EMAIL ENDPOINT (NEW)
+# ============================================
+
+def send_custom_email_to_candidate(
+    recipient_email: str,
+    recipient_name: str,
+    subject: str,
+    message: str,
+    sender_name: str,
+    sender_email: str
+):
+    """Send custom email to candidate"""
+    try:
+        # Get email configuration
+        smtp_server = settings.SMTP_SERVER
+        smtp_port = settings.SMTP_PORT
+        smtp_username = settings.SMTP_USERNAME
+        smtp_password = settings.SMTP_PASSWORD
+        from_email = settings.FROM_EMAIL
+        from_name = settings.FROM_NAME
+        
+        # Validate email configuration
+        if not all([smtp_username, smtp_password, from_email]):
+            print("ERROR: Email configuration is incomplete")
+            return False
+
+        # Create message
+        email_message = MIMEMultipart("alternative")
+        email_message["Subject"] = subject
+        email_message["From"] = f"{from_name} <{from_email}>"
+        email_message["To"] = recipient_email
+        email_message["Reply-To"] = sender_email  # Allow candidate to reply directly to employer
+
+        # Create HTML email
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .content {{
+                    background-color: white;
+                    padding: 40px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    padding-bottom: 30px;
+                    border-bottom: 3px solid #3F5357;
+                    margin-bottom: 30px;
+                }}
+                h1 {{
+                    color: #2C2C2C;
+                    margin: 0;
+                    font-size: 24px;
+                    font-weight: 600;
+                }}
+                .message-content {{
+                    background-color: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    white-space: pre-line;
+                    border-left: 4px solid #3F5357;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 40px;
+                    padding-top: 30px;
+                    border-top: 2px solid #e9ecef;
+                    color: #6c757d;
+                    font-size: 13px;
+                }}
+                .signature {{
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e9ecef;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="content">
+                    <div class="header">
+                        <h1>{subject}</h1>
+                    </div>
+                    
+                    <p style="font-size: 16px;">Dear {recipient_name},</p>
+                    
+                    <div class="message-content">
+                        {message}
+                    </div>
+                    
+                    <div class="signature">
+                        <p style="margin: 5px 0;"><strong>{sender_name}</strong></p>
+                        <p style="margin: 5px 0; color: #666;">{sender_email}</p>
+                        <p style="margin: 5px 0; color: #666;">{from_name}</p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>This email was sent from {from_name} recruitment system.</p>
+                        <p>&copy; 2025 {from_name}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Plain text version
+        text_body = f"""
+{subject}
+
+Dear {recipient_name},
+
+{message}
+
+---
+{sender_name}
+{sender_email}
+{from_name}
+
+---
+This email was sent from {from_name} recruitment system.
+© 2025 {from_name}. All rights reserved.
+        """
+
+        # Attach both versions
+        part1 = MIMEText(text_body, "plain")
+        part2 = MIMEText(html_body, "html")
+        email_message.attach(part1)
+        email_message.attach(part2)
+
+        # Send email
+        print(f"📧 Sending custom email to {recipient_email}...")
+        
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(email_message)
+            server.quit()
+            
+            print(f"✅ Custom email sent successfully to {recipient_email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ SMTP Error: {str(e)}")
+            return False
+        
+    except Exception as e:
+        print(f"❌ Error sending custom email: {str(e)}")
+        return False
+
+
+@router.post("/candidates/{candidate_id}/send-email", response_model=SendEmailResponse)
+async def send_email_to_candidate(
+    candidate_id: int,
+    request: SendEmailRequest,
+    current_user: User = Depends(check_employer),
+    db: Session = Depends(get_db)
+):
+    """
+    Send a custom email to a candidate
+    Requires employer or admin role
+    """
+    try:
+        # Verify candidate exists and belongs to user's company
+        application = db.query(Application).filter(Application.id == candidate_id).first()
+        
+        if not application:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        # Verify the application belongs to a job in user's company
+        job = db.query(Job).filter(
+            Job.id == application.job_id,
+            Job.company_id == current_user.company_id
+        ).first()
+
+        if not job:
+            raise HTTPException(status_code=403, detail="Not authorized to email this candidate")
+
+        # Get sender info
+        sender_name = getattr(current_user, 'full_name', getattr(current_user, 'name', 'HR Manager'))
+        sender_email = current_user.email
+
+        # Send email
+        email_sent = send_custom_email_to_candidate(
+            recipient_email=request.recipient_email,
+            recipient_name=request.recipient_name,
+            subject=request.subject,
+            message=request.message,
+            sender_name=sender_name,
+            sender_email=sender_email
+        )
+
+        if not email_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send email. Please check email configuration."
+            )
+
+        return SendEmailResponse(
+            success=True,
+            message="Email sent successfully"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in send_email_to_candidate: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while sending the email"
+        )
+
+
+# ============================================
 # JOB-SPECIFIC APPLICATION ENDPOINTS
 # ============================================
 
@@ -511,7 +765,6 @@ def update_application_status(
 # DASHBOARD/STATS
 # ============================================
 
-@router.get("/stats")
 @router.get("/stats")
 def get_employer_stats(
     current_user: User = Depends(check_employer),

@@ -1,5 +1,5 @@
 // ============================================
-// FILE: app/employer/candidates/page.tsx (FIXED)
+// FILE: app/employer/candidates/page.tsx (WITH EMAIL COMPOSER)
 // ============================================
 'use client';
 
@@ -25,9 +25,11 @@ import {
   XCircle,
   Clock,
   AlertCircle,
+  Send, // Added for email button
 } from 'lucide-react';
 import Sidebar from '@/app/components/sidebar';
 import { API_URL } from '@/app/config/constants';
+import EmailComposer from './components/EmailComposer';
 
 interface Candidate {
   id: number;
@@ -54,6 +56,7 @@ export default function EmployerCandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false); // Add state for email composer
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [userName, setUserName] = useState('HR Manager');
@@ -94,8 +97,6 @@ export default function EmployerCandidatesPage() {
     setError(null);
     
     try {
-      console.log('Fetching candidates from:', `${API_URL}/employer/candidates`);
-      
       const response = await fetch(`${API_URL}/employer/candidates`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -103,29 +104,12 @@ export default function EmployerCandidatesPage() {
         },
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to fetch candidates: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch candidates`);
       }
 
       const data = await response.json();
-      console.log('Candidates data received:', data);
-      console.log('Number of candidates:', data.length);
-
-      if (!Array.isArray(data)) {
-        console.error('Data is not an array:', data);
-        throw new Error('Invalid response format: expected array');
-      }
-
       setCandidates(data);
-      
-      if (data.length === 0) {
-        console.warn('No candidates found - this is normal if no one has applied yet');
-      }
     } catch (error: any) {
       console.error('Error loading candidates:', error);
       setError(error.message || 'Failed to load candidates');
@@ -138,8 +122,6 @@ export default function EmployerCandidatesPage() {
   const loadJobs = async () => {
     const token = localStorage.getItem('token');
     try {
-      console.log('Fetching jobs from:', `${API_URL}/employer/jobs`);
-      
       const response = await fetch(`${API_URL}/employer/jobs`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -152,8 +134,6 @@ export default function EmployerCandidatesPage() {
       }
 
       const data = await response.json();
-      console.log('Jobs data received:', data);
-      
       setJobs(data.map((job: any) => ({ id: job.id, title: job.title })));
     } catch (error) {
       console.error('Error loading jobs:', error);
@@ -164,8 +144,6 @@ export default function EmployerCandidatesPage() {
   const handleUpdateStatus = async (candidateId: number, newStatus: string) => {
     const token = localStorage.getItem('token');
     try {
-      console.log(`Updating candidate ${candidateId} status to ${newStatus}`);
-      
       const response = await fetch(`${API_URL}/employer/candidates/${candidateId}/status`, {
         method: 'PUT',
         headers: {
@@ -180,7 +158,6 @@ export default function EmployerCandidatesPage() {
         throw new Error(errorData.detail || 'Failed to update status');
       }
       
-      console.log('Status updated successfully');
       loadCandidates();
       
       if (selectedCandidate?.id === candidateId) {
@@ -193,9 +170,14 @@ export default function EmployerCandidatesPage() {
   };
 
   const handleViewCandidate = (candidate: Candidate) => {
-    console.log('Viewing candidate:', candidate);
     setSelectedCandidate(candidate);
     setShowViewModal(true);
+  };
+
+  // New function to open email composer
+  const handleSendEmail = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
+    setShowEmailComposer(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -210,19 +192,18 @@ export default function EmployerCandidatesPage() {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'reviewing': return <Eye className="w-4 h-4" />;
-      case 'shortlisted': return <Star className="w-4 h-4" />;
-      case 'rejected': return <XCircle className="w-4 h-4" />;
-      case 'hired': return <CheckCircle className="w-4 h-4" />;
-      default: return null;
-    }
+    const icons = {
+      pending: <Clock className="w-4 h-4" />,
+      reviewing: <Eye className="w-4 h-4" />,
+      shortlisted: <Star className="w-4 h-4" />,
+      rejected: <XCircle className="w-4 h-4" />,
+      hired: <CheckCircle className="w-4 h-4" />,
+    };
+    return icons[status as keyof typeof icons] || <AlertCircle className="w-4 h-4" />;
   };
 
-  // Filter candidates
-  const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = !searchQuery || 
+  const filteredCandidates = candidates.filter((candidate) => {
+    const matchesSearch = 
       candidate.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.job_title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -234,119 +215,52 @@ export default function EmployerCandidatesPage() {
   });
 
   const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCandidates = filteredCandidates.slice(startIndex, startIndex + itemsPerPage);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357] mx-auto mb-4"></div>
-          <p className="text-white">Loading candidates...</p>
-        </div>
-      </div>
-    );
-  }
+  const paginatedCandidates = filteredCandidates.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex">
-      {/* Sidebar */}
-      <Sidebar
-        activeMenu="candidates"
-        userRole="employer"
-        userName={userName}
-        userEmail={userEmail}
-      />
+    <div className="flex min-h-screen bg-gray-50 text-black">
+     <Sidebar
+             activeMenu="candidates"
+             userRole="employer"
+             userName={userName}
+             userEmail={userEmail}
+           />
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
-        <div className="p-8">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-            <span>Recruitment</span>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900 font-medium">Candidates</span>
-          </div>
+      <div className="flex-1 p-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Candidate Management</h1>
+          <p className="text-gray-600">Review and manage all job applications</p>
+        </div>
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Manage and review job applications
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 bg-gray-100 rounded-lg">
-                <span className="text-sm text-gray-600">Total Applicants: </span>
-                <span className="text-sm font-bold text-gray-900">{candidates.length}</span>
-              </div>
-              <button
-                onClick={loadCandidates}
-                className="px-4 py-2 bg-[#3F5357] hover:bg-[#344447] text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-red-900">Error Loading Candidates</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
-                <button
-                  onClick={loadCandidates}
-                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                >
-                  Try again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Debug Info (remove in production) */}
-        
-
-          {/* Filters */}
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
-            <div className="relative md:col-span-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search candidates..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] focus:border-transparent text-sm bg-white text-gray-900 placeholder:text-gray-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded transition-colors"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              )}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search candidates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] focus:border-transparent"
+                />
+              </div>
             </div>
 
             {/* Status Filter */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div>
               <select
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] focus:border-transparent text-sm bg-white text-gray-900 appearance-none cursor-pointer"
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] bg-white"
               >
-                <option value="all">All Statuses</option>
+                <option value="all">All Status</option>
                 <option value="pending">Pending</option>
                 <option value="reviewing">Reviewing</option>
                 <option value="shortlisted">Shortlisted</option>
@@ -356,184 +270,209 @@ export default function EmployerCandidatesPage() {
             </div>
 
             {/* Job Filter */}
-            <div className="relative">
-              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div>
               <select
                 value={jobFilter}
-                onChange={(e) => {
-                  setJobFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] focus:border-transparent text-sm bg-white text-gray-900 appearance-none cursor-pointer"
+                onChange={(e) => setJobFilter(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] bg-white"
               >
-                <option value="all">All Positions</option>
-                {jobs.map(job => (
-                  <option key={job.id} value={job.id}>{job.title}</option>
+                <option value="all">All Jobs</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id.toString()}>
+                    {job.title}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
+        </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-[#d4dfe3]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Candidate
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Applied For
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Applied Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    AI Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {paginatedCandidates.length === 0 ? (
+        {/* Results Summary */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Showing <span className="font-semibold text-gray-900">{paginatedCandidates.length}</span> of{' '}
+              <span className="font-semibold text-gray-900">{filteredCandidates.length}</span> candidates
+            </p>
+            <div className="flex gap-2">
+              {['pending', 'reviewing', 'shortlisted', 'rejected', 'hired'].map((status) => {
+                const count = filteredCandidates.filter((c) => c.status === status).length;
+                return (
+                  <div key={status} className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
+                    {status}: {count}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Candidates Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357]"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <p className="text-red-600 font-medium mb-2">Error loading candidates</p>
+              <p className="text-gray-600 text-sm mb-4">{error}</p>
+              <button
+                onClick={loadCandidates}
+                className="px-4 py-2 bg-[#3F5357] text-white rounded-lg hover:bg-[#344447] transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : paginatedCandidates.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 font-medium mb-2">No candidates found</p>
+              <p className="text-gray-500 text-sm">Try adjusting your filters or search query</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <FileText className="w-12 h-12 text-gray-400 mb-4" />
-                        <p className="text-gray-900 font-medium mb-1">No candidates found</p>
-                        <p className="text-sm text-gray-500">
-                          {candidates.length === 0 
-                            ? "Applications will appear here once candidates apply to your jobs."
-                            : "Try adjusting your filters to see more candidates."}
-                        </p>
-                      </div>
-                    </td>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Candidate
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Position
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Applied Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      AI Score
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ) : (
-                  paginatedCandidates.map((candidate) => (
-                    <tr key={candidate.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300"
-                          />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {candidate.full_name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {candidate.email}
-                            </div>
-                          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedCandidates.map((candidate) => (
+                    <tr key={candidate.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{candidate.full_name}</div>
+                          <div className="text-sm text-gray-500">{candidate.email}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-900">
-                          {candidate.job_title}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{candidate.job_title}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">
-                          {new Date(candidate.applied_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(candidate.status)}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(candidate.status)}`}>
                           {getStatusIcon(candidate.status)}
-                          {candidate.status}
+                          {candidate.status.charAt(0).toUpperCase() + candidate.status.slice(1)}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {new Date(candidate.applied_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         {candidate.ai_score ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                              <div 
-                                className={`h-2 rounded-full ${
-                                  candidate.ai_score >= 80 ? 'bg-green-600' :
-                                  candidate.ai_score >= 60 ? 'bg-blue-600' :
-                                  candidate.ai_score >= 40 ? 'bg-yellow-600' :
-                                  'bg-red-600'
-                                }`}
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full"
                                 style={{ width: `${candidate.ai_score}%` }}
                               />
                             </div>
-                            <span className="text-sm font-medium text-gray-700">
-                              {candidate.ai_score}%
-                            </span>
+                            <span className="text-sm font-medium text-gray-700">{candidate.ai_score}%</span>
                           </div>
                         ) : (
                           <span className="text-sm text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleSendEmail(candidate)}
+                            className="p-2 hover:bg-blue-50 rounded-lg transition-colors group"
+                            title="Send Email"
+                          >
+                            <Send className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+                          </button>
                           <button
                             onClick={() => handleViewCandidate(candidate)}
-                            className="text-sm text-[#3F5357] hover:text-[#2C2C2C] font-medium"
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
+                            title="View Details"
                           >
-                            View Details
+                            <Eye className="w-4 h-4 text-gray-600 group-hover:text-gray-900" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === i + 1
-                      ? 'bg-gray-800 text-white'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-      </main>
 
-      {/* View Candidate Modal */}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Email Composer Modal */}
+      {showEmailComposer && selectedCandidate && (
+        <EmailComposer
+          isOpen={showEmailComposer}
+          onClose={() => setShowEmailComposer(false)}
+          candidate={{
+            id: selectedCandidate.id,
+            full_name: selectedCandidate.full_name,
+            email: selectedCandidate.email,
+            job_title: selectedCandidate.job_title,
+          }}
+          onEmailSent={() => {
+            console.log('Email sent successfully');
+            // Optionally reload candidates or update UI
+          }}
+        />
+      )}
+
+      {/* View Candidate Modal (keeping your existing modal) */}
       {showViewModal && selectedCandidate && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="overflow-y-auto max-h-[90vh] p-8">
               {/* Header */}
               <div className="flex items-start justify-between mb-6">
                 <div>
@@ -727,11 +666,14 @@ export default function EmployerCandidatesPage() {
                   Close
                 </button>
                 <button
-                  onClick={() => window.open(`mailto:${selectedCandidate.email}`, '_blank')}
+                  onClick={() => {
+                    setShowViewModal(false);
+                    handleSendEmail(selectedCandidate);
+                  }}
                   className="px-6 py-3 bg-[#3F5357] hover:bg-[#344447] text-white rounded-lg transition-colors font-medium flex items-center gap-2"
                 >
                   <Mail className="w-4 h-4" />
-                  Send Email
+                  Compose Email
                 </button>
               </div>
             </div>

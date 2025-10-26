@@ -169,7 +169,7 @@ def get_user(
 def update_user(
         user_id: int,
         user_update: UserUpdate,
-        current_user: User = Depends(check_admin),
+        current_user: User = Depends(get_db),
         db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.id == user_id).first()
