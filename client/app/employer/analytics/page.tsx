@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import Sidebar from '@/app/components/sidebar';
 import { API_URL } from '@/app/config/constants';
-import { Users, FileText, TrendingUp, Briefcase } from 'lucide-react';
+import { Users, FileText, TrendingUp, Briefcase, CheckCircle, Clock } from 'lucide-react';
 
 interface Job {
   id: number;
@@ -71,22 +71,40 @@ export default function EmployerAnalytics() {
     }
   };
 
-  // Aggregates
+  // Job Status Aggregates
+  const activeJobs = jobs.filter(j => j.status === 'active').length;
+  const closedJobs = jobs.filter(j => j.status === 'closed').length;
+  const draftJobs = jobs.filter(j => j.status === 'draft').length;
+
+  // Application Status Aggregates
   const hiredCount = applications.filter(a => a.status === 'hired').length;
   const shortlistedCount = applications.filter(a => a.status === 'shortlisted').length;
   const pendingCount = applications.filter(a => a.status === 'pending').length;
+  const rejectedCount = applications.filter(a => a.status === 'rejected').length;
+  
   const totalJobs = jobs.length;
   const totalApplications = applications.length;
 
-  // Chart Data
-  const pieData = [
+  // Application Status Chart Data
+  const applicationPieData = [
     { name: 'Hired', value: hiredCount },
     { name: 'Shortlisted', value: shortlistedCount },
     { name: 'Pending', value: pendingCount },
-  ];
+    { name: 'Rejected', value: rejectedCount },
+  ].filter(item => item.value > 0);
 
-  const COLORS = ['#22c55e', '#a855f7', '#f59e0b'];
+  const APPLICATION_COLORS = ['#22c55e', '#a855f7', '#f59e0b', '#ef4444'];
 
+  // Job Status Chart Data
+  const jobStatusPieData = [
+    { name: 'Active', value: activeJobs },
+    { name: 'Closed', value: closedJobs },
+    { name: 'Draft', value: draftJobs },
+  ].filter(item => item.value > 0);
+
+  const JOB_STATUS_COLORS = ['#22c55e', '#ef4444', '#94a3b8'];
+
+  // Job Posting Trends (Monthly)
   const barData = jobs.reduce((acc: Record<string, number>, job) => {
     const month = new Date(job.created_at).toLocaleString('default', { month: 'short' });
     acc[month] = (acc[month] || 0) + 1;
@@ -96,14 +114,14 @@ export default function EmployerAnalytics() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex">
+    <div className="min-h-screen bg-white flex">
       <Sidebar
         activeMenu="analytics"
         userRole="employer"
@@ -119,33 +137,129 @@ export default function EmployerAnalytics() {
           </p>
 
           {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            <StatCard icon={<Briefcase className="w-6 h-6" />} label="Total Jobs" value={totalJobs} color="from-blue-500 to-blue-600" />
-            <StatCard icon={<FileText className="w-6 h-6" />} label="Total Applications" value={totalApplications} color="from-green-500 to-green-600" />
-            <StatCard icon={<Users className="w-6 h-6" />} label="Shortlisted" value={shortlistedCount} color="from-purple-500 to-purple-600" />
-            <StatCard icon={<TrendingUp className="w-6 h-6" />} label="Hired" value={hiredCount} color="from-orange-500 to-orange-600" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-12">
+            <StatCard 
+              icon={<Briefcase className="w-6 h-6" />} 
+              label="Total Jobs" 
+              value={totalJobs} 
+              color="from-blue-500 to-blue-600" 
+            />
+            <StatCard 
+              icon={<CheckCircle className="w-6 h-6" />} 
+              label="Active Jobs" 
+              value={activeJobs} 
+              color="from-green-500 to-green-600" 
+            />
+            <StatCard 
+              icon={<FileText className="w-6 h-6" />} 
+              label="Total Applications" 
+              value={totalApplications} 
+              color="from-purple-500 to-purple-600" 
+            />
+            <StatCard 
+              icon={<Users className="w-6 h-6" />} 
+              label="Shortlisted" 
+              value={shortlistedCount} 
+              color="from-indigo-500 to-indigo-600" 
+            />
+            <StatCard 
+              icon={<TrendingUp className="w-6 h-6" />} 
+              label="Hired" 
+              value={hiredCount} 
+              color="from-teal-500 to-teal-600" 
+            />
+            <StatCard 
+              icon={<Clock className="w-6 h-6" />} 
+              label="Pending" 
+              value={pendingCount} 
+              color="from-amber-500 to-amber-600" 
+            />
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-10">
             {/* Application Status Pie Chart */}
             <div className="bg-white/95 rounded-3xl p-8 shadow-lg border border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Status Distribution</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} label>
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Status</h2>
+              {applicationPieData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={applicationPieData} 
+                        cx="50%" 
+                        cy="50%" 
+                        outerRadius={80} 
+                        label
+                        dataKey="value"
+                      >
+                        {applicationPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={APPLICATION_COLORS[index % APPLICATION_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-500">
+                  No applications yet
+                </div>
+              )}
             </div>
 
-            {/* Job Posting Trends */}
+            {/* Job Status Pie Chart */}
+            <div className="bg-white/95 rounded-3xl p-8 shadow-lg border border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Job Status</h2>
+              {jobStatusPieData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={jobStatusPieData} 
+                        cx="50%" 
+                        cy="50%" 
+                        outerRadius={80} 
+                        label
+                        dataKey="value"
+                      >
+                        {jobStatusPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={JOB_STATUS_COLORS[index % JOB_STATUS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-500">
+                  No jobs posted yet
+                </div>
+              )}
+            </div>
+
+            {/* Hiring Metrics */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-8 shadow-lg border border-green-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Hiring Metrics</h3>
+              <div className="space-y-4">
+                <MetricRow 
+                  label="Hire Rate" 
+                  value={`${totalApplications > 0 ? ((hiredCount / totalApplications) * 100).toFixed(1) : 0}%`} 
+                />
+                <MetricRow 
+                  label="Avg Apps/Job" 
+                  value={totalJobs > 0 ? (totalApplications / totalJobs).toFixed(1) : '0'} 
+                />
+                <MetricRow 
+                  label="Active Job Rate" 
+                  value={`${totalJobs > 0 ? ((activeJobs / totalJobs) * 100).toFixed(0) : 0}%`} 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Job Posting Trends */}
+          {barChartData.length > 0 && (
             <div className="bg-white/95 rounded-3xl p-8 shadow-lg border border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Job Posting Trends</h2>
               <div className="h-64">
@@ -160,7 +274,7 @@ export default function EmployerAnalytics() {
                 </ResponsiveContainer>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
@@ -188,6 +302,16 @@ function StatCard({
       </div>
       <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
       <p className="text-sm font-medium text-gray-600">{label}</p>
+    </div>
+  );
+}
+
+// Metric Row Component
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+      <span className="text-sm text-gray-600">{label}</span>
+      <span className="text-lg font-semibold text-gray-900">{value}</span>
     </div>
   );
 }

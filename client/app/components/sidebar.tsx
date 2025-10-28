@@ -46,6 +46,12 @@ export default function Sidebar({
           path: '/admin/dashboard',
           active: activeMenu === 'overview' || activeMenu === 'dashboard',
         },
+           {
+          icon: <Briefcase className="w-5 h-5" />,
+          label: 'Job Lists',
+          path: '/admin/jobs',
+          active: activeMenu === 'jobs',
+        },
         {
           icon: <Building2 className="w-5 h-5" />,
           label: 'Organization',

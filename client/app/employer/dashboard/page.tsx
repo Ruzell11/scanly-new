@@ -108,14 +108,14 @@ export default function EmployerDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex">
+    <div className="min-h-screen bg-white flex">
       {/* Sidebar */}
       <Sidebar
         activeMenu="overview"
@@ -226,7 +226,7 @@ export default function EmployerDashboard() {
                       title={job.title}
                       type={job.employment_type}
                       candidates={`${applications.filter(app => app.job_id === job.id).length} Candidates`}
-                      onClick={() => router.push(`/employer/jobs/${job.id}`)}
+                       onClick={() => router.push(`/employer/jobs/`)}
                       isClosed={true}
                     />
                   ))}

@@ -183,14 +183,14 @@ export default function AccountSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex">
+    <div className="min-h-screen bg-white flex">
       {/* Sidebar */}
       <Sidebar
         activeMenu="settings"

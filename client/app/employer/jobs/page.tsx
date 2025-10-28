@@ -1,71 +1,67 @@
-// ============================================
-// FILE: app/employer/jobs/page.tsx
-// ============================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  X,
-  Trash2,
-  Search,
-  Edit,
-  Link as LinkIcon,
-  Copy,
-  Check,
-} from 'lucide-react';
 import Sidebar from '@/app/components/sidebar';
 import { API_URL } from '@/app/config/constants';
+import { 
+  Briefcase, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Eye, 
+  MapPin, 
+  Calendar,
+  Users,
+  Ban,
+  AlertCircle,
+  X
+} from 'lucide-react';
+
 interface Job {
   id: number;
   title: string;
   description: string;
   requirements: string;
-  location: string;
-  salary_range?: string;
   employment_type: string;
+  location: string;
+  salary_range: string;
   status: string;
-  company_id: number;
-  created_by: number;
-  apply_link?: string;
   created_at: string;
+  company_id: number;
 }
 
-export default function EmployerJobsPage() {
+interface Toast {
+  message: string;
+  type: 'success' | 'error' | 'warning';
+}
+
+export default function EmployerJobs() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [userName, setUserName] = useState('HR Manager');
   const [userEmail, setUserEmail] = useState('hr@company.com');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [copiedJobId, setCopiedJobId] = useState<number | null>(null);
-  
-  // Form state
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<number | null>(null);
+  const [formError, setFormError] = useState('');
+  const [toast, setToast] = useState<Toast | null>(null);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     requirements: '',
+    employment_type: 'full-time',
     location: '',
     salary_range: '',
-    employment_type: 'full-time',
+    status: 'active',
   });
-  const [formError, setFormError] = useState('');
-
-  const itemsPerPage = 10;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
-    
+
     if (!token) {
       router.push('/login');
       return;
@@ -80,137 +76,166 @@ export default function EmployerJobsPage() {
     loadJobs();
   }, []);
 
+  // Auto-hide toast after 4 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning') => {
+    setToast({ message, type });
+  };
+
   const loadJobs = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`${API_URL}/employer/jobs`, {
+      const res = await fetch(`${API_URL}/employer/jobs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
+      const data = await res.json();
       setJobs(data);
-    } catch (error) {
-      console.error('Error loading jobs:', error);
+    } catch (err) {
+      console.error('Error loading jobs', err);
+      showToast('Failed to load jobs', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    const token = localStorage.getItem('token');
-    
-    try {
-      const url = isEditing && selectedJob 
-        ? `${API_URL}/employer/jobs/${selectedJob.id}`
-        : `${API_URL}/employer/jobs`;
-      
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to ${isEditing ? 'update' : 'create'} job`);
-      }
-
-      setShowModal(false);
-      setIsEditing(false);
-      loadJobs();
-      setFormData({
-        title: '',
-        description: '',
-        requirements: '',
-        location: '',
-        salary_range: '',
-        employment_type: 'full-time',
-      });
-    } catch (error: any) {
-      setFormError(error.message);
+  const handleEdit = (job: Job) => {
+    // Check if job is suspended
+    if (job.status === 'suspended') {
+      showToast('This job has been suspended by admin. Please contact support.', 'warning');
+      return;
     }
-  };
 
-  const handleDeleteJob = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
-    
-    const token = localStorage.getItem('token');
-    try {
-      await fetch(`${API_URL}/employer/jobs/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setShowViewModal(false);
-      loadJobs();
-    } catch (error) {
-      console.error('Error deleting job:', error);
-    }
-  };
-
-  const handleViewJob = (job: Job) => {
-    setSelectedJob(job);
-    setShowViewModal(true);
-  };
-
-  const handleEditJob = (job: Job) => {
-    setSelectedJob(job);
     setFormData({
       title: job.title,
       description: job.description,
       requirements: job.requirements,
+      employment_type: job.employment_type,
       location: job.location,
       salary_range: job.salary_range || '',
-      employment_type: job.employment_type,
+      status: job.status || 'active',
     });
+    setEditingJobId(job.id);
     setIsEditing(true);
     setShowModal(true);
   };
 
-  const handleCopyLink = async (job: Job) => {
-    if (!job.apply_link) return;
-    
+  const handleCreateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+
     try {
-      await navigator.clipboard.writeText(job.apply_link);
-      setCopiedJobId(job.id);
-      setTimeout(() => setCopiedJobId(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy link:', error);
+      const url = isEditing
+        ? `${API_URL}/employer/jobs/${editingJobId}`
+        : `${API_URL}/employer/jobs`;
+      
+      const method = isEditing ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || 'Failed to save job');
+      }
+
+      showToast(
+        isEditing ? 'Job updated successfully' : 'Job created successfully',
+        'success'
+      );
+      setShowModal(false);
+      resetForm();
+      loadJobs();
+    } catch (err: any) {
+      console.error('Error saving job', err);
+      setFormError(err.message || 'Failed to save job');
+      showToast(err.message || 'Failed to save job', 'error');
     }
   };
 
-  const totalPages = Math.ceil(jobs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  
-  // Filter jobs based on search query
-  const filteredJobs = jobs.filter(job => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+  const handleDelete = async (jobId: number) => {
+    const job = jobs.find(j => j.id === jobId);
+    
+    if (job?.status === 'suspended') {
+      showToast('Cannot delete suspended jobs. Please contact support.', 'warning');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this job?')) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/employer/jobs/${jobId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        showToast('Job deleted successfully', 'success');
+        loadJobs();
+      } else {
+        throw new Error('Failed to delete job');
+      }
+    } catch (err) {
+      console.error('Error deleting job', err);
+      showToast('Failed to delete job', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      requirements: '',
+      employment_type: 'full-time',
+      location: '',
+      salary_range: '',
+      status: 'active',
+    });
+    setEditingJobId(null);
+    setIsEditing(false);
+    setFormError('');
+  };
+
+  const getStatusBadge = (status: string) => {
+    const badges: Record<string, { bg: string; text: string; label: string }> = {
+      active: { bg: 'bg-green-100', text: 'text-green-800', label: 'Active' },
+      closed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Closed' },
+      draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Draft' },
+      suspended: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Suspended by Admin' },
+    };
+
+    const badge = badges[status] || badges.draft;
+
     return (
-      job.title.toLowerCase().includes(query) ||
-      job.employment_type.toLowerCase().includes(query) ||
-      job.location.toLowerCase().includes(query)
+      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${badge.bg} ${badge.text}`}>
+        {status === 'suspended' && <Ban className="w-3 h-3" />}
+        {badge.label}
+      </span>
     );
-  });
-  
-  const paginatedJobs = filteredJobs.slice(startIndex, startIndex + itemsPerPage);
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3F5357]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a] flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-white flex">
       <Sidebar
         activeMenu="jobs"
         userRole="employer"
@@ -218,200 +243,162 @@ export default function EmployerJobsPage() {
         userEmail={userEmail}
       />
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto bg-white">
-        <div className="p-8">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-            <span>Job Lists</span>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900 font-medium">Open Positions</span>
-          </div>
-
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Open Positions</h1>
-            <button
-              onClick={() => {
-                setIsEditing(false);
-                setFormData({
-                  title: '',
-                  description: '',
-                  requirements: '',
-                  location: '',
-                  salary_range: '',
-                  employment_type: 'full-time',
-                });
-                setShowModal(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#3F5357] hover:bg-[#344447] text-white rounded-lg transition-colors text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Add New Position
-            </button>
-          </div>
-
-          {/* Search */}
-          <div className="mb-6">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by title, type, or location..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3F5357] focus:border-transparent text-sm bg-white text-gray-900 placeholder:text-gray-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded transition-colors"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-[#d4dfe3]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Job Position
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Job Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {paginatedJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                      No jobs found. Create your first job posting to get started.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300"
-                          />
-                          <span className="text-sm font-medium text-gray-900">
-                            {job.title}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {job.employment_type}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          job.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleViewJob(job)}
-                            className="text-sm text-[#3F5357] hover:text-[#2C2C2C] font-medium"
-                          >
-                            Quick view
-                          </button>
-                          <button
-                            onClick={() => handleCopyLink(job)}
-                            className={`p-1 transition-colors ${
-                              copiedJobId === job.id
-                                ? 'text-green-600'
-                                : 'text-[#3F5357] hover:text-[#2C2C2C]'
-                            }`}
-                            title="Copy application link"
-                          >
-                            {copiedJobId === job.id ? (
-                              <Check className="w-4 h-4" />
-                            ) : (
-                              <LinkIcon className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleEditJob(job)}
-                            className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteJob(job.id)}
-                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
+        <div className="max-w-7xl mx-auto p-8">
+          {/* Toast Notification */}
+          {toast && (
+            <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg animate-slide-in ${
+              toast.type === 'success' ? 'bg-green-500' : 
+              toast.type === 'error' ? 'bg-red-500' : 
+              'bg-orange-500'
+            } text-white`}>
+              {toast.type === 'warning' && <AlertCircle className="w-5 h-5" />}
+              <span className="font-medium">{toast.message}</span>
               <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setToast(null)}
+                className="ml-2 hover:bg-white/20 rounded p-1"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === i + 1
-                      ? 'bg-gray-800 text-white'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">💼 Job Openings</h1>
+              <p className="text-gray-600">Manage your job postings and track applications</p>
+            </div>
+            <button
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-[#3F5357] text-white rounded-xl hover:bg-[#2d3d42] transition-colors shadow-lg font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Post New Job
+            </button>
+          </div>
+
+          {/* Suspended Jobs Warning */}
+          {jobs.some(job => job.status === 'suspended') && (
+            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-orange-900">Some jobs have been suspended</h3>
+                <p className="text-sm text-orange-700 mt-1">
+                  Jobs marked as "Suspended by Admin" cannot be edited or deleted. 
+                  Please contact support if you believe this is an error.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Jobs List */}
+          <div className="space-y-4">
+            {jobs.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 text-lg mb-4">No job postings yet</p>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowModal(true);
+                  }}
+                  className="px-6 py-3 bg-[#3F5357] text-white rounded-lg hover:bg-[#2d3d42] transition-colors font-medium"
+                >
+                  Create Your First Job
+                </button>
+              </div>
+            ) : (
+              jobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={`bg-white rounded-2xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
+                    job.status === 'suspended' 
+                      ? 'border-orange-300 bg-orange-50/30' 
+                      : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                        {getStatusBadge(job.status)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Briefcase className="w-4 h-4" />
+                          <span className="capitalize">{job.employment_type.replace('-', ' ')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>{new Date(job.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-gray-600 text-sm line-clamp-2">{job.description}</p>
+                      
+                      {job.status === 'suspended' && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-orange-700">
+                          <Ban className="w-4 h-4" />
+                          <span className="font-medium">
+                            This job has been suspended by an administrator. Contact support for assistance.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => router.push(`/employer/jobs/${job.id}/applications`)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Applications"
+                      >
+                        <Users className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleEdit(job)}
+                        disabled={job.status === 'suspended'}
+                        className={`p-2 rounded-lg transition-colors ${
+                          job.status === 'suspended'
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-green-600 hover:bg-green-50'
+                        }`}
+                        title={job.status === 'suspended' ? 'Cannot edit suspended job' : 'Edit Job'}
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(job.id)}
+                        disabled={job.status === 'suspended'}
+                        className={`p-2 rounded-lg transition-colors ${
+                          job.status === 'suspended'
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-red-600 hover:bg-red-50'
+                        }`}
+                        title={job.status === 'suspended' ? 'Cannot delete suspended job' : 'Delete Job'}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Create/Edit Job Modal */}
+      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -526,6 +513,29 @@ export default function EmployerJobsPage() {
                   />
                 </div>
 
+                {/* Job Status - Only show when editing and NOT suspended */}
+                {isEditing && formData.status !== 'suspended' && (
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                      Job Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
+                    >
+                      <option value="active">Active</option>
+                      <option value="closed">Closed</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                    <p className="mt-2 text-xs text-white/60">
+                      {formData.status === 'active' && '✓ Job is visible to applicants'}
+                      {formData.status === 'closed' && '✗ Job is closed and not accepting applications'}
+                      {formData.status === 'draft' && '📝 Job is saved as draft'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Buttons */}
                 <div className="flex gap-4 pt-4">
                   <button
@@ -534,6 +544,7 @@ export default function EmployerJobsPage() {
                       setShowModal(false);
                       setFormError('');
                       setIsEditing(false);
+                      resetForm();
                     }}
                     className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
                   >
@@ -547,197 +558,6 @@ export default function EmployerJobsPage() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick View Modal */}
-      {showViewModal && selectedJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                    Job Details
-                  </h2>
-                  <p className="text-gray-500 text-sm">
-                    View job posting information
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowViewModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Job Info */}
-              <div className="space-y-6">
-                {/* Title */}
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <label className="block text-sm font-medium text-gray-500 mb-2">
-                    Job Title
-                  </label>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedJob.title}
-                  </p>
-                </div>
-
-                {/* Description */}
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <label className="block text-sm font-medium text-gray-500 mb-2">
-                    Description
-                  </label>
-                  <p className="text-base text-gray-700 leading-relaxed whitespace-pre-line">
-                    {selectedJob.description}
-                  </p>
-                </div>
-
-                {/* Requirements */}
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <label className="block text-sm font-medium text-gray-500 mb-2">
-                    Requirements
-                  </label>
-                  <p className="text-base text-gray-700 leading-relaxed whitespace-pre-line">
-                    {selectedJob.requirements}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Employment Type */}
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Employment Type
-                    </label>
-                    <p className="text-base text-gray-900 capitalize">
-                      {selectedJob.employment_type}
-                    </p>
-                  </div>
-
-                  {/* Location */}
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Location
-                    </label>
-                    <p className="text-base text-gray-900">
-                      {selectedJob.location}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Salary Range */}
-                {selectedJob.salary_range && (
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Salary Range
-                    </label>
-                    <p className="text-base text-gray-900">
-                      {selectedJob.salary_range}
-                    </p>
-                  </div>
-                )}
-
-                {/* Apply Link */}
-                {selectedJob.apply_link && (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <label className="block text-sm font-medium text-blue-900 mb-1">
-                          📋 Application Link
-                        </label>
-                        <p className="text-xs text-blue-600">
-                          Share this link for candidates to apply. AI will automatically analyze their resumes.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleCopyLink(selectedJob)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                          copiedJobId === selectedJob.id
-                            ? 'bg-green-600 text-white'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                      >
-                        {copiedJobId === selectedJob.id ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            Copy Link
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 border border-blue-200">
-                      <code className="text-sm text-blue-900 break-all font-mono">
-                        {selectedJob.apply_link}
-                      </code>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status & Date */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Status
-                    </label>
-                    <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                      selectedJob.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {selectedJob.status}
-                    </span>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Created Date
-                    </label>
-                    <p className="text-base text-gray-900">
-                      {new Date(selectedJob.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
-                <button
-                  onClick={() => setShowViewModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg transition-colors font-medium"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    handleEditJob(selectedJob);
-                  }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit Job
-                </button>
-                <button
-                  onClick={() => handleDeleteJob(selectedJob.id)}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
-              </div>
             </div>
           </div>
         </div>
