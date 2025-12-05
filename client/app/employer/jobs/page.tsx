@@ -15,7 +15,8 @@ import {
   Users,
   Ban,
   AlertCircle,
-  X
+  X,
+  Link2
 } from 'lucide-react';
 
 interface Job {
@@ -356,6 +357,19 @@ export default function EmployerJobs() {
                     </div>
 
                     <div className="flex gap-2 ml-4">
+                     <button
+  onClick={() => {
+    const publicLink = `${window.location.origin}/apply/${job.id}`;
+    navigator.clipboard.writeText(publicLink);
+    showToast('Public job link copied', 'success');
+  }}
+  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+  title="Copy Public Job Link"
+>
+  <Link2 className="w-5 h-5" />
+</button>
+
+
                       <button
                         onClick={() => router.push(`/employer/jobs/${job.id}/applications`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

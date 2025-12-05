@@ -7,6 +7,20 @@ from datetime import datetime
 # COMPANY SCHEMAS
 # ============================================
 
+class ApplicationWithApplicant(BaseModel):
+    id: int
+    job_id: int
+    user_id: int
+    resume_url: str
+    cover_letter: Optional[str]
+    status: str
+    applied_at: datetime
+    applicant_name: str
+    applicant_email: str
+    job_title: str
+    
+    class Config:
+        from_attributes = True
 class CompanyCreate(BaseModel):
     name: str
     email: EmailStr
@@ -261,7 +275,9 @@ class DashboardAnalytics(BaseModel):
     total_jobs: int
     total_applications: int
     active_jobs: int
+    closed_jobs: int
     pending_applications: int
+    suspended_jobs: int
 
 
 class EmployerDashboard(BaseModel):
@@ -276,3 +292,22 @@ class EmployerDashboard(BaseModel):
     hired_applications: int
     recent_applications: int  # Last 7 days
     avg_ai_score: Optional[float]
+
+
+
+class JobWithCompany(BaseModel):
+    id: int
+    title: str
+    description: str
+    requirements: str
+    employment_type: str
+    location: str
+    salary_range: Optional[str]
+    status: str
+    created_at: datetime
+    company_id: int
+    company_name: str
+    application_count: int
+    
+    class Config:
+        from_attributes = True

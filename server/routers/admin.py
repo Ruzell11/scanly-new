@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import Company, User, Job, Application
-from schemas import CompanyCreate, CompanyResponse, UserCreate, UserResponse, DashboardAnalytics
+from schemas import CompanyCreate, CompanyResponse, UserCreate, UserResponse, DashboardAnalytics, JobWithCompany
 from auth import check_admin, get_password_hash
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -240,13 +240,74 @@ def get_dashboard_analytics(
     total_jobs = db.query(Job).count()
     total_applications = db.query(Application).count()
     active_jobs = db.query(Job).filter(Job.status == "active").count()
+    closed_jobs = db.query(Job).filter(Job.status == "closed").count()
+    suspended_jobs = db.query(Job).filter(Job.status == "suspended").count()
     pending_applications = db.query(Application).filter(Application.status == "pending").count()
-
+    
     return {
         "total_companies": total_companies,
         "total_users": total_users,
         "total_jobs": total_jobs,
         "total_applications": total_applications,
         "active_jobs": active_jobs,
-        "pending_applications": pending_applications
+        "closed_jobs": closed_jobs,
+        "pending_applications": pending_applications,
+        "suspended_jobs": suspended_jobs
     }
+
+@router.get("/jobs", response_model=List[JobWithCompany])
+def get_all_jobs(
+    current_user: User = Depends(check_admin),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None,
+    company_id: Optional[int] = None,
+    search: Optional[str] = None
+):
+    """Get all jobs across all companies with filtering"""
+    query = db.query(Job).join(Company)
+    
+    if status:
+        query = query.filter(Job.status == status)
+    
+    if company_id:
+        query = query.filter(Job.company_id == company_id)
+    
+    if search:
+        query = query.filter(
+            or_(
+                Job.title.ilike(f"%{search}%"),
+                Job.description.ilike(f"%{search}%")
+            )
+        )
+    
+    jobs = query.order_by(Job.created_at.desc()).all()
+    
+    return [
+        {
+            **job.__dict__,
+            "company_name": job.company.name,
+            "application_count": db.query(Application).filter(Application.job_id == job.id).count()
+        }
+        for job in jobs
+    ]
+
+@router.patch("/jobs/{job_id}/status")
+def update_job_status(
+    job_id: int,
+    status: str,  # Query parameter
+    current_user: User = Depends(check_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin can update any job status"""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if status not in ["active", "closed", "draft", "suspended"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    job.status = status
+    db.commit()
+    db.refresh(job)
+    
+    return {"message": "Job status updated successfully", "status": status}

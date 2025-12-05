@@ -13,7 +13,7 @@ from models import Job, Application, User, Company
 from schemas import (
     JobPostCreate, JobPostUpdate, JobPostResponse,
     ApplicationResponse, CandidateListResponse, CandidateDetailResponse,
-    ApplicationStatusUpdate, CandidateStatsResponse, BulkStatusUpdate
+    ApplicationStatusUpdate, CandidateStatsResponse, BulkStatusUpdate, ApplicationWithApplicant
 )
 from auth import check_employer
 from utils import generate_apply_link
@@ -76,13 +76,17 @@ def create_job_post(
 @router.get("/jobs", response_model=List[JobPostResponse])
 def list_my_jobs(
         current_user: User = Depends(check_employer),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_db),
+        status: Optional[str] = None
 ):
-    if not current_user.company_id:
-        return []
-
-    jobs = db.query(Job).filter(Job.company_id == current_user.company_id).all()
-    return jobs
+     """Get all jobs for the current employer (including suspended)"""
+     query = db.query(Job).filter(Job.company_id == current_user.company_id)
+    
+     if status:
+        query = query.filter(Job.status == status)
+    
+     jobs = query.order_by(Job.created_at.desc()).all()
+     return jobs
 
 
 @router.get("/jobs/{job_id}", response_model=JobPostResponse)
@@ -109,21 +113,35 @@ def update_job_post(
         current_user: User = Depends(check_employer),
         db: Session = Depends(get_db)
 ):
+    """Employer can update their jobs, but cannot change suspended status"""
     job = db.query(Job).filter(
         Job.id == job_id,
         Job.company_id == current_user.company_id
     ).first()
-
+    
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    update_data = job_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(job, key, value)
-
+    
+    # Prevent employer from unsuspending jobs
+    if job.status == "suspended" and job_update.status != "suspended":
+        raise HTTPException(
+            status_code=403, 
+            detail="Cannot modify suspended jobs. Please contact support."
+        )
+    
+    # Prevent employer from setting status to suspended (only admin can)
+    if job_update.status == "suspended":
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot suspend jobs yourself. Contact support if needed."
+        )
+    
+    # Update job fields
+    for field, value in job_update.dict(exclude_unset=True).items():
+        setattr(job, field, value)
+    
     db.commit()
     db.refresh(job)
-
     return job
 
 
@@ -824,3 +842,63 @@ def get_employer_stats(
         "shortlisted_applications": shortlisted_applications,
         "hired_applications": hired_applications
     }
+
+@router.get("/jobs/{job_id}/applications", response_model=List[ApplicationWithApplicant])
+def get_job_applications(
+    job_id: int,
+    current_user: User = Depends(check_employer),
+    db: Session = Depends(get_db),
+    status: Optional[str] = None
+):
+    """Get all applications for a specific job"""
+    # Verify job belongs to employer's company
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.company_id == current_user.company_id
+    ).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    query = db.query(Application).filter(Application.job_id == job_id)
+    
+    if status:
+        query = query.filter(Application.status == status)
+    
+    applications = query.order_by(Application.applied_at.desc()).all()
+    
+    # Return with applicant details
+    return [
+        {
+            **app.__dict__,
+            "applicant_name": app.user.full_name,
+            "applicant_email": app.user.email,
+            "job_title": app.job.title
+        }
+        for app in applications
+    ]
+
+@router.patch("/applications/{application_id}/status")
+def update_application_status(
+    application_id: int,
+    status: str,  # Query parameter
+    current_user: User = Depends(check_employer),
+    db: Session = Depends(get_db)
+):
+    """Update application status"""
+    application = db.query(Application).join(Job).filter(
+        Application.id == application_id,
+        Job.company_id == current_user.company_id
+    ).first()
+    
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    if status not in ["pending", "shortlisted", "rejected", "hired"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    application.status = status
+    db.commit()
+    db.refresh(application)
+    
+    return {"message": "Application status updated successfully", "status": status}
