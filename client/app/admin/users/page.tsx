@@ -405,152 +405,160 @@ export default function UsersPage() {
       </main>
 
       {/* Create User Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  {isEditing ? 'Edit User' : 'Create a New User'}
-                </h2>
-                <p className="text-white/60 text-sm">
-                  {isEditing ? 'Update user information' : 'Add a new user to the system'}
-                </p>
-              </div>
+  {showModal && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="p-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {isEditing ? 'Edit User' : 'Create a New User'}
+          </h2>
+          <p className="text-white/60 text-sm">
+            {isEditing ? 'Update user information' : 'Add a new user to the system'}
+          </p>
+        </div>
 
-              <form onSubmit={handleCreateUser} className="space-y-6">
-                {formError && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
-                    {formError}
-                  </div>
-                )}
+        <form onSubmit={handleCreateUser} className="space-y-6">
+          {formError && (
+            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+              {formError}
+            </div>
+          )}
 
-                {/* Full Name */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="John Doe"
-                    required
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-                  />
-                </div>
+          {/* Full Name */}
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">Full Name</label>
+            <input
+              type="text"
+              placeholder="John Doe"
+              required
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+            />
+          </div>
 
-                {/* Email */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="user@example.com"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-                  />
-                </div>
+          {/* Email */}
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">Email</label>
+            <input
+              type="email"
+              placeholder="user@example.com"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+            />
+          </div>
 
-                {/* Password */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Password {!isEditing && <span className="text-red-300">*</span>}
-                  </label>
-                  <input
-                    type="password"
-                    placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"}
-                    required={!isEditing}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-                  />
-                  {isEditing && (
-                    <p className="text-white/60 text-xs mt-1">
-                      Leave blank to keep current password
-                    </p>
-                  )}
-                </div>
+          {/* Password */}
+          <div>
+            <label className="block text-white text-sm font-medium mb-2">
+              Password {!isEditing && <span className="text-red-300">*</span>}
+            </label>
+            <input
+              type="password"
+              placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"}
+              required={!isEditing}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+            />
+            {isEditing && (
+              <p className="text-white/60 text-xs mt-1">Leave blank to keep current password</p>
+            )}
+          </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Role */}
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Role
-                    </label>
-                    <select
-                      required
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
-                    >
-                      <option value="">Select Role</option>
-                      <option value="admin">Admin</option>
-                      <option value="employer">Employer</option>
-                    </select>
-                  </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Role */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">Role</label>
+              <select
+                required
+                value={formData.role}
+                onChange={(e) => {
+                  const selectedRole = e.target.value;
+                  // Prevent Admin if company is selected
+                  if (selectedRole === 'admin' && formData.company_id) {
+                    alert("Cannot assign Admin role to a user with a company.");
+                    return;
+                  }
+                  setFormData({ ...formData, role: selectedRole });
+                }}
+                className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
+              >
+                <option value="">Select Role</option>
+                <option value="admin" disabled={!!formData.company_id}>Admin</option>
+                <option value="employer">Employer</option>
+              </select>
+            </div>
 
-                  {/* Company */}
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Company {formData.role === 'employer' && <span className="text-red-300">*</span>}
-                    </label>
-                    <select
-                      required={formData.role === 'employer'}
-                      value={formData.company_id}
-                      onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
-                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
-                    >
-                      <option value="">Select Company</option>
-                      {companies.map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.role === 'employer' && (
-                      <p className="text-white/60 text-xs mt-1">
-                        Employer must be assigned to a company
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Buttons */}
-                <div className="flex gap-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setFormError('');
-                      setIsEditing(false);
-                      setFormData({
-                        email: '',
-                        password: '',
-                        full_name: '',
-                        role: '',
-                        company_id: '',
-                      });
-                    }}
-                    className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-6 py-3 bg-[#4a9eff] hover:bg-[#3d8ae6] text-white rounded-lg transition-colors font-medium"
-                  >
-                    {isEditing ? 'Update' : 'Save'}
-                  </button>
-                </div>
-              </form>
+            {/* Company */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Company {formData.role === 'employer' && <span className="text-red-300">*</span>}
+              </label>
+              <select
+                required={formData.role === 'employer'}
+                value={formData.company_id}
+                onChange={(e) => {
+                  const companyId = e.target.value;
+                  // Prevent Admin if selecting a company
+                  if (companyId && formData.role === 'admin') {
+                    alert("Admin cannot be assigned to a company.");
+                    setFormData({ ...formData, company_id: '', role: '' });
+                    return;
+                  }
+                  setFormData({ ...formData, company_id: companyId });
+                }}
+                className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
+              >
+                <option value="">Select Company</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              {formData.role === 'employer' && (
+                <p className="text-white/60 text-xs mt-1">Employer must be assigned to a company</p>
+              )}
             </div>
           </div>
-        </div>
-      )}
+
+          {/* Buttons */}
+          <div className="flex gap-4 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowModal(false);
+                setFormError('');
+                setIsEditing(false);
+                setFormData({
+                  email: '',
+                  password: '',
+                  full_name: '',
+                  role: '',
+                  company_id: '',
+                });
+              }}
+              className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-6 py-3 bg-[#4a9eff] hover:bg-[#3d8ae6] text-white rounded-lg transition-colors font-medium"
+            >
+              {isEditing ? 'Update' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Quick View Modal */}
       {showViewModal && selectedUser && (

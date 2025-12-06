@@ -358,15 +358,22 @@ export default function EmployerJobs() {
 
                     <div className="flex gap-2 ml-4">
                      <button
+                      disabled={job.status === 'suspended'}
+                        className={`p-2 rounded-lg transition-colors ${
+                          job.status === 'suspended'
+                            ? 'text-gray-400 cursor-not-allowed'
+                            : 'text-green-600 hover:bg-green-50 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors'
+                        }`}
+                        title={job.status === 'suspended' ? 'Cannot copy job link suspended job' : 'Copy Public Job Link'}
+                     
   onClick={() => {
     const publicLink = `${window.location.origin}/apply/${job.id}`;
     navigator.clipboard.writeText(publicLink);
     showToast('Public job link copied', 'success');
   }}
-  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-  title="Copy Public Job Link"
+
 >
-  <Link2 className="w-5 h-5" />
+  <Link2 className="w-5 h-5"  />
 </button>
 
 

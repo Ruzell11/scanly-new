@@ -15,9 +15,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  AlertCircle,
-  Eye,
-  Ban
+  Ban,
+  Eye
 } from 'lucide-react';
 
 interface Job {
@@ -40,10 +39,49 @@ interface Company {
   name: string;
 }
 
+// Confirmation Modal
+interface ConfirmationModalProps {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+const ConfirmationModal = ({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+}: ConfirmationModalProps) => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <h3 className="text-xl font-semibold text-gray-900 mb-4">{title}</h3>
+      <p className="text-gray-700 mb-6">{message}</p>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+        >
+          {cancelText}
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+        >
+          {confirmText}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 export default function AdminJobs() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
-   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Admin');
@@ -55,9 +93,18 @@ export default function AdminJobs() {
   const [companyFilter, setCompanyFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  // View job modal
+  // Job modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
+
+  // Confirmation modal
+  const [confirmationModal, setConfirmationModal] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+  } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -82,7 +129,6 @@ export default function AdminJobs() {
     setLoading(true);
 
     try {
-      // Build query params
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (companyFilter !== 'all') params.append('company_id', companyFilter);
@@ -93,7 +139,6 @@ export default function AdminJobs() {
       const jobsData = await jobsRes.json();
       setJobs(jobsData);
 
-      // Load companies for filter
       const companiesRes = await fetch(`${API_URL}/admin/companies`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -129,42 +174,30 @@ export default function AdminJobs() {
     }
   };
 
- const handleUpdateStatus = async (jobId: number, newStatus: string) => {
-  const token = localStorage.getItem('token');
-  setIsUpdating(true);
-  
-  try {
-    const res = await fetch(`${API_URL}/admin/jobs/${jobId}/status?status=${newStatus}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
+  const confirmUpdateStatus = (job: Job, newStatus: string) => {
+    setConfirmationModal({
+      title: 'Confirm Status Update',
+      message: `Are you sure you want to mark "${job.title}" as ${newStatus}?`,
+      onConfirm: async () => {
+        setConfirmationModal(null);
+        const token = localStorage.getItem('token');
+        try {
+          const res = await fetch(`${API_URL}/admin/jobs/${job.id}/status?status=${newStatus}`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error('Failed to update status');
+          const data = await res.json();
+          setJobs(jobs.map(j => (j.id === job.id ? { ...j, status: newStatus } : j)));
+          if (selectedJob?.id === job.id) setSelectedJob({ ...selectedJob, status: newStatus });
+        } catch (err) {
+          console.error(err);
+        }
       },
+      confirmText: 'Update',
+      cancelText: 'Cancel',
     });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || 'Failed to update job status');
-    }
-
-    const data = await res.json();
-    
-    // Update local state
-    setJobs(jobs.map(job => 
-      job.id === jobId ? { ...job, status: newStatus } : job
-    ));
-    
-    if (selectedJob?.id === jobId) {
-      setSelectedJob({ ...selectedJob, status: newStatus });
-    }
-    
-    alert(data.message || 'Job status updated successfully');
-  } catch (err: any) {
-    console.error('Error updating job status', err);
-    alert(err.message || 'Failed to update job status');
-  } finally {
-    setIsUpdating(false);
-  }
-};
+  };
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -184,8 +217,6 @@ export default function AdminJobs() {
       </span>
     );
   };
-
-  const filteredJobs = jobs;
 
   if (loading) {
     return (
@@ -215,7 +246,6 @@ export default function AdminJobs() {
           {/* Search and Filters */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Search */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -244,7 +274,6 @@ export default function AdminJobs() {
               </button>
             </div>
 
-            {/* Filter Options */}
             {showFilters && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
                 <div>
@@ -281,56 +310,15 @@ export default function AdminJobs() {
             )}
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <Briefcase className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{jobs.length}</p>
-              <p className="text-sm text-gray-600">Total Jobs</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-              <div className="flex items-center justify-between mb-2">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {jobs.filter((j) => j.status === 'active').length}
-              </p>
-              <p className="text-sm text-gray-600">Active Jobs</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 border border-red-200">
-              <div className="flex items-center justify-between mb-2">
-                <XCircle className="w-8 h-8 text-red-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {jobs.filter((j) => j.status === 'closed').length}
-              </p>
-              <p className="text-sm text-gray-600">Closed Jobs</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="w-8 h-8 text-purple-600" />
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {jobs.reduce((sum, job) => sum + job.application_count, 0)}
-              </p>
-              <p className="text-sm text-gray-600">Total Applications</p>
-            </div>
-          </div>
-
           {/* Jobs List */}
           <div className="space-y-4">
-            {filteredJobs.length === 0 ? (
+            {jobs.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
                 <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 text-lg">No jobs found</p>
               </div>
             ) : (
-              filteredJobs.map((job) => (
+              jobs.map((job) => (
                 <div
                   key={job.id}
                   className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
@@ -386,7 +374,7 @@ export default function AdminJobs() {
 
                       {job.status !== 'suspended' && (
                         <button
-                          onClick={() => handleUpdateStatus(job.id, 'suspended')}
+                          onClick={() => confirmUpdateStatus(job, 'suspended')}
                           className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                           title="Suspend Job"
                         >
@@ -396,7 +384,7 @@ export default function AdminJobs() {
 
                       {job.status === 'suspended' && (
                         <button
-                          onClick={() => handleUpdateStatus(job.id, 'active')}
+                          onClick={() => confirmUpdateStatus(job, 'active')}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Reactivate Job"
                         >
@@ -477,52 +465,47 @@ export default function AdminJobs() {
 
                 {/* Admin Actions */}
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Actions</h3>
-                  <div className="flex gap-3">
-                    {selectedJob.status !== 'active' && (
-                      <button
-                        onClick={() => handleUpdateStatus(selectedJob.id, 'active')}
-                        className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Activate
-                      </button>
-                    )}
+                  {selectedJob.status !== 'suspended' && (
+                    <button
+                      onClick={() => confirmUpdateStatus(selectedJob, 'suspended')}
+                      className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                    >
+                      Suspend Job
+                    </button>
+                  )}
 
-                    {selectedJob.status !== 'closed' && (
-                      <button
-                        onClick={() => handleUpdateStatus(selectedJob.id, 'closed')}
-                        className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center justify-center gap-2"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        Close
-                      </button>
-                    )}
-
-                    {selectedJob.status !== 'suspended' && (
-                      <button
-                        onClick={() => handleUpdateStatus(selectedJob.id, 'suspended')}
-                        className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center justify-center gap-2"
-                      >
-                        <Ban className="w-4 h-4" />
-                        Suspend
-                      </button>
-                    )}
-                  </div>
+                  {selectedJob.status === 'suspended' && (
+                    <button
+                      onClick={() => confirmUpdateStatus(selectedJob, 'active')}
+                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                    >
+                      Reactivate Job
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => setShowJobModal(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                >
-                  Close
-                </button>
-              </div>
+              <button
+                onClick={() => setShowJobModal(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationModal && (
+        <ConfirmationModal
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          onConfirm={confirmationModal.onConfirm}
+          onCancel={() => setConfirmationModal(null)}
+          confirmText={confirmationModal.confirmText}
+          cancelText={confirmationModal.cancelText}
+        />
       )}
     </div>
   );
