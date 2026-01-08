@@ -212,7 +212,7 @@ export default function JobApplications() {
         userEmail={userEmail}
       />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto lg:ml-72">
         <div className="max-w-6xl mx-auto p-8">
           {/* Toast Notification */}
           {toast && (

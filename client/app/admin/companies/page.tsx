@@ -193,7 +193,7 @@ export default function CompaniesPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white lg:ml-72">
         <div className="p-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">

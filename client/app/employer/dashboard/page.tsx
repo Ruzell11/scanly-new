@@ -125,7 +125,7 @@ export default function EmployerDashboard() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white mt-20 lg:mt-0 lg:ml-72">
         <div className="max-w-7xl mx-auto p-8">
           {/* Welcome Card */}
           <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl p-8 mb-8 shadow-lg">

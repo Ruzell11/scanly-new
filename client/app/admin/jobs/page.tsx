@@ -96,6 +96,13 @@ export default function AdminJobs() {
   // Job modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
+const [currentPage, setCurrentPage] = useState(1);
+const jobsPerPage = 5; // how many jobs per page
+const indexOfLastJob = currentPage * jobsPerPage;
+const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+const currentJobs = jobs.slice(indexOfFirstJob, indexOfLastJob);
+const totalPages = Math.ceil(jobs.length / jobsPerPage);
+
 
   // Confirmation modal
   const [confirmationModal, setConfirmationModal] = useState<{
@@ -183,7 +190,7 @@ export default function AdminJobs() {
         const token = localStorage.getItem('token');
         try {
           const res = await fetch(`${API_URL}/admin/jobs/${job.id}/status?status=${newStatus}`, {
-            method: 'PATCH',
+            method: 'PUT',
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error('Failed to update status');
@@ -235,7 +242,7 @@ export default function AdminJobs() {
         userEmail={userEmail}
       />
 
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white mt-20 lg:mt-0 lg:ml-72">
         <div className="max-w-7xl mx-auto p-8">
           {/* Header */}
           <div className="mb-8">
@@ -312,13 +319,13 @@ export default function AdminJobs() {
 
           {/* Jobs List */}
           <div className="space-y-4">
-            {jobs.length === 0 ? (
+            {currentJobs.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
                 <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 text-lg">No jobs found</p>
               </div>
             ) : (
-              jobs.map((job) => (
+              currentJobs.map((job) => (
                 <div
                   key={job.id}
                   className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
@@ -361,140 +368,221 @@ export default function AdminJobs() {
                     </div>
 
                     <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => {
-                          setSelectedJob(job);
-                          setShowJobModal(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-5 h-5" />
-                      </button>
+                      {/* View */}
+<button
+  onClick={() => {
+    setSelectedJob(job);
+    setShowJobModal(true);
+  }}
+  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+  title="View Details"
+>
+  <Eye className="w-5 h-5" />
+</button>
 
-                      {job.status !== 'suspended' && (
-                        <button
-                          onClick={() => confirmUpdateStatus(job, 'suspended')}
-                          className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                          title="Suspend Job"
-                        >
-                          <Ban className="w-5 h-5" />
-                        </button>
-                      )}
+{/* Make Active (ONLY draft or closed) */}
+{['draft', 'open'].includes(job.status) && (
+  <button
+    onClick={() => confirmUpdateStatus(job, 'active')}
+    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+    title="Make Job Active"
+  >
+    <CheckCircle className="w-5 h-5" />
+  </button>
+)}
 
-                      {job.status === 'suspended' && (
-                        <button
-                          onClick={() => confirmUpdateStatus(job, 'active')}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Reactivate Job"
-                        >
-                          <CheckCircle className="w-5 h-5" />
-                        </button>
-                      )}
+{/* Suspend (ONLY if NOT suspended) */}
+{job.status !== 'open' && (
+  <button
+    onClick={() => confirmUpdateStatus(job, 'suspended')}
+    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+    title="Suspend Job"
+  >
+    <Ban className="w-5 h-5" />
+  </button>
+)}
+
+{/* Reactivate (ONLY suspended) */}
+{job.status === 'suspended' || job.status === "closed" && (
+  <button
+    onClick={() => confirmUpdateStatus(job, 'active')}
+    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+    title="Reactivate Job"
+  >
+    <CheckCircle className="w-5 h-5" />
+  </button>
+)}
+
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
+         {jobs.length > jobsPerPage && (
+  <div className="flex items-center justify-center gap-2 mt-8">
+    <button
+      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+      disabled={currentPage === 1}
+      className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+        currentPage === 1
+          ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+          : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+      }`}
+    >
+      Previous
+    </button>
+
+    {[...Array(totalPages)].map((_, index) => {
+      const page = index + 1;
+      return (
+        <button
+          key={page}
+          onClick={() => setCurrentPage(page)}
+          className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+            currentPage === page
+              ? 'bg-[#3F5357] text-white border-[#3F5357]'
+              : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+          }`}
+        >
+          {page}
+        </button>
+      );
+    })}
+
+    <button
+      onClick={() =>
+        setCurrentPage((p) => Math.min(p + 1, totalPages))
+      }
+      disabled={currentPage === totalPages}
+      className={`px-4 py-2 rounded-lg border text-sm font-medium transition ${
+        currentPage === totalPages
+          ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+          : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+      }`}
+    >
+      Next
+    </button>
+      </div>
+)}
+
+
         </div>
       </main>
 
       {/* Job Details Modal */}
-      {showJobModal && selectedJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedJob.title}</h2>
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-700 font-medium">{selectedJob.company_name}</span>
-                  </div>
-                </div>
-                {getStatusBadge(selectedJob.status)}
-              </div>
+     {showJobModal && selectedJob && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
 
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Job Details</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Location:</span>
-                      <span className="ml-2 font-medium">{selectedJob.location}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Type:</span>
-                      <span className="ml-2 font-medium capitalize">
-                        {selectedJob.employment_type.replace('-', ' ')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Salary:</span>
-                      <span className="ml-2 font-medium">
-                        {selectedJob.salary_range || 'Not specified'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Applications:</span>
-                      <span className="ml-2 font-medium">{selectedJob.application_count}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Posted:</span>
-                      <span className="ml-2 font-medium">
-                        {new Date(selectedJob.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Company ID:</span>
-                      <span className="ml-2 font-medium">{selectedJob.company_id}</span>
-                    </div>
-                  </div>
-                </div>
+      {/* Close Button */}
+      <button
+        onClick={() => setShowJobModal(false)}
+        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl"
+      >
+        ✕
+      </button>
 
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedJob.description}</p>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Requirements</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedJob.requirements}</p>
-                </div>
-
-                {/* Admin Actions */}
-                <div className="border-t pt-6">
-                  {selectedJob.status !== 'suspended' && (
-                    <button
-                      onClick={() => confirmUpdateStatus(selectedJob, 'suspended')}
-                      className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-                    >
-                      Suspend Job
-                    </button>
-                  )}
-
-                  {selectedJob.status === 'suspended' && (
-                    <button
-                      onClick={() => confirmUpdateStatus(selectedJob, 'active')}
-                      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-                    >
-                      Reactivate Job
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowJobModal(false)}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
+      <div className="p-8">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedJob.title}</h2>
+            <div className="flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-gray-600" />
+              <span className="text-gray-700 font-medium">{selectedJob.company_name}</span>
             </div>
           </div>
+          {getStatusBadge(selectedJob.status)}
         </div>
-      )}
+
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Job Details</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Location:</span>
+                <span className="ml-2 font-medium">{selectedJob.location}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Type:</span>
+                <span className="ml-2 font-medium capitalize">
+                  {selectedJob.employment_type.replace('-', ' ')}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">Salary:</span>
+                <span className="ml-2 font-medium">
+                  {selectedJob.salary_range || 'Not specified'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">Applications:</span>
+                <span className="ml-2 font-medium">{selectedJob.application_count}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Posted:</span>
+                <span className="ml-2 font-medium">
+                  {new Date(selectedJob.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">Company ID:</span>
+                <span className="ml-2 font-medium">{selectedJob.company_id}</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{selectedJob.description}</p>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Requirements</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{selectedJob.requirements}</p>
+          </div>
+
+          {/* Admin Actions */}
+          <div className="border-t pt-6 flex justify-between items-center gap-2">
+
+  {/* Make Active (ONLY draft or open) */}
+  {['draft', 'open'].includes(selectedJob.status) && (
+    <button
+      onClick={() => confirmUpdateStatus(selectedJob, 'active')}
+      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+    >
+      Make Job Active
+    </button>
+  )}
+
+  {/* Suspend (ONLY if NOT open) */}
+  {selectedJob.status !== 'open' && selectedJob.status !== 'suspended' && (
+    <button
+      onClick={() => confirmUpdateStatus(selectedJob, 'suspended')}
+      className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+    >
+      Suspend Job
+    </button>
+  )}
+
+  {/* Reactivate (ONLY suspended or closed) */}
+  {['suspended', 'closed'].includes(selectedJob.status) && (
+    <button
+      onClick={() => confirmUpdateStatus(selectedJob, 'active')}
+      className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+    >
+      Reactivate Job
+    </button>
+  )}
+
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Confirmation Modal */}
       {confirmationModal && (

@@ -129,7 +129,7 @@ export default function EmployerAnalytics() {
         userEmail={userEmail}
       />
 
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white lg:ml-72">
         <div className="max-w-7xl mx-auto p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">📊 Employer Analytics</h1>
           <p className="text-gray-600 mb-10">

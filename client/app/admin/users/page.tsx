@@ -46,14 +46,14 @@ export default function UsersPage() {
   const [userName, setUserName] = useState('Admin');
   const [userEmail, setUserEmail] = useState('admin@example.com');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Form state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     full_name: '',
-    role: '',
-    company_id: '',
+    role: 'employer',
+    company_id: '1',
   });
   const [formError, setFormError] = useState('');
 
@@ -62,7 +62,7 @@ export default function UsersPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
-    
+
     if (!token) {
       router.push('/login');
       return;
@@ -104,7 +104,7 @@ export default function UsersPage() {
     e.preventDefault();
     setFormError('');
     const token = localStorage.getItem('token');
-    
+
     try {
       const payload = {
         email: formData.email,
@@ -117,7 +117,7 @@ export default function UsersPage() {
       const url = isEditing && selectedUser
         ? `${API_URL}/admin/users/${selectedUser.id}`
         : `${API_URL}/admin/users`;
-      
+
       const method = isEditing ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -151,7 +151,7 @@ export default function UsersPage() {
 
   const handleDeleteUser = async (id: number) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     const token = localStorage.getItem('token');
     try {
       await fetch(`${API_URL}/admin/users/${id}`, {
@@ -202,7 +202,7 @@ export default function UsersPage() {
 
   const totalPages = Math.ceil(users.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  
+
   // Filter users based on search query
   const filteredUsers = users.filter(user => {
     if (!searchQuery) return true;
@@ -214,7 +214,7 @@ export default function UsersPage() {
       getCompanyName(user.company_id).toLowerCase().includes(query)
     );
   });
-  
+
   const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) {
@@ -236,7 +236,7 @@ export default function UsersPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white lg:ml-72">
         <div className="p-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
@@ -284,87 +284,133 @@ export default function UsersPage() {
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-[#d4dfe3]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Full Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Company
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {paginatedUsers.length === 0 ? (
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#d4dfe3]">
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                      No users found. Add your first user to get started.
-                    </td>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Company</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                   </tr>
-                ) : (
-                  paginatedUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300"
-                          />
-                          <span className="text-sm font-medium text-gray-900">
-                            {user.full_name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {getCompanyName(user.company_id)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleViewUser(user)}
-                            className="text-sm text-[#3F5357] hover:text-[#2C2C2C] font-medium"
-                          >
-                            Quick view
-                          </button>
-                          <button
-                            onClick={() => handleEditUser(user)}
-                            className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                </thead>
+
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                        No users found.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    paginatedUsers.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <input type="checkbox" className="w-4 h-4" />
+                            <span className="text-sm font-medium text-black">{user.full_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-black">{user.email}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getRoleBadgeColor(user.role)}`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-black">
+                          {getCompanyName(user.company_id)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-3">
+                            <button
+                              className="text-black"
+                              onClick={() => handleViewUser(user)}
+                            >
+                              Quick view
+                            </button>
+
+                            {user.id !== 1 && (
+                              <>
+                                <button
+                                  className="text-blue-500"
+                                  onClick={() => handleEditUser(user)}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  className="text-red-500"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="lg:hidden space-y-4">
+              {paginatedUsers.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No users found.</p>
+              ) : (
+                paginatedUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="bg-white rounded-xl border p-4 shadow-sm space-y-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-gray-900">{user.full_name}</p>
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                      </div>
+
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-gray-500">Role:</span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getRoleBadgeColor(user.role)}`}>
+                        {user.role}
+                      </span>
+                    </div>
+
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium">Company:</span>{' '}
+                      {getCompanyName(user.company_id)}
+                    </div>
+                    <div className="flex gap-4 pt-2 border-t">
+                      <button
+                        onClick={() => handleViewUser(user)}
+                        className="text-sm font-medium text-[#3F5357]"
+                      >
+                        Quick view
+                      </button>
+                      {user.id !== 1 && (
+
+
+                        <>
+                          <button onClick={() => handleEditUser(user)}>
+                            <Edit className="w-4 h-4 text-blue-600" />
+                          </button>
+                          <button onClick={() => handleDeleteUser(user.id)}>
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </>
+
+                      )}
+                    </div>
+                  </div>
+
+                ))
+              )}
+            </div>
+
           </div>
 
           {/* Pagination */}
@@ -377,16 +423,15 @@ export default function UsersPage() {
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              
+
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i + 1}
                   onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === i + 1
+                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === i + 1
                       ? 'bg-gray-800 text-white'
                       : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                    }`}
                 >
                   {i + 1}
                 </button>
@@ -405,72 +450,72 @@ export default function UsersPage() {
       </main>
 
       {/* Create User Modal */}
-  {showModal && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-      <div className="p-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">
-            {isEditing ? 'Edit User' : 'Create a New User'}
-          </h2>
-          <p className="text-white/60 text-sm">
-            {isEditing ? 'Update user information' : 'Add a new user to the system'}
-          </p>
-        </div>
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  {isEditing ? 'Edit User' : 'Create a New User'}
+                </h2>
+                <p className="text-white/60 text-sm">
+                  {isEditing ? 'Update user information' : 'Add a new user to the system'}
+                </p>
+              </div>
 
-        <form onSubmit={handleCreateUser} className="space-y-6">
-          {formError && (
-            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
-              {formError}
-            </div>
-          )}
+              <form onSubmit={handleCreateUser} className="space-y-6">
+                {formError && (
+                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                    {formError}
+                  </div>
+                )}
 
-          {/* Full Name */}
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">Full Name</label>
-            <input
-              type="text"
-              placeholder="John Doe"
-              required
-              value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-            />
-          </div>
+                {/* Full Name */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">Name</label>
+                  <input
+                    type="text"
+                    placeholder="John Doe"
+                    required
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                  />
+                </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
-              placeholder="user@example.com"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-            />
-          </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    placeholder="user@example.com"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                  />
+                </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">
-              Password {!isEditing && <span className="text-red-300">*</span>}
-            </label>
-            <input
-              type="password"
-              placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"}
-              required={!isEditing}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
-            />
-            {isEditing && (
-              <p className="text-white/60 text-xs mt-1">Leave blank to keep current password</p>
-            )}
-          </div>
+                {/* Password */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Password {!isEditing && <span className="text-red-300">*</span>}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"}
+                    required={!isEditing}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                  />
+                  {isEditing && (
+                    <p className="text-white/60 text-xs mt-1">Leave blank to keep current password</p>
+                  )}
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Role */}
+                {/* <div className="grid grid-cols-2 gap-4">
+            /~ Role ~/
             <div>
               <label className="block text-white text-sm font-medium mb-2">Role</label>
               <select
@@ -493,12 +538,13 @@ export default function UsersPage() {
               </select>
             </div>
 
-            {/* Company */}
+            /~ Company ~/
             <div>
-              <label className="block text-white text-sm font-medium mb-2">
+              /~<label className="block text-white text-sm font-medium mb-2">
                 Company {formData.role === 'employer' && <span className="text-red-300">*</span>}
-              </label>
-              <select
+              </label>~/
+             /~ <select
+              defaultValue={5}
                 required={formData.role === 'employer'}
                 value={formData.company_id}
                 onChange={(e) => {
@@ -519,45 +565,45 @@ export default function UsersPage() {
                     {company.name}
                   </option>
                 ))}
-              </select>
+              </select>~/
               {formData.role === 'employer' && (
                 <p className="text-white/60 text-xs mt-1">Employer must be assigned to a company</p>
               )}
             </div>
-          </div>
+          </div>*/}
 
-          {/* Buttons */}
-          <div className="flex gap-4 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setShowModal(false);
-                setFormError('');
-                setIsEditing(false);
-                setFormData({
-                  email: '',
-                  password: '',
-                  full_name: '',
-                  role: '',
-                  company_id: '',
-                });
-              }}
-              className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 bg-[#4a9eff] hover:bg-[#3d8ae6] text-white rounded-lg transition-colors font-medium"
-            >
-              {isEditing ? 'Update' : 'Save'}
-            </button>
+                {/* Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setFormError('');
+                      setIsEditing(false);
+                      setFormData({
+                        email: '',
+                        password: '',
+                        full_name: '',
+                        role: '',
+                        company_id: '1',
+                      });
+                    }}
+                    className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 bg-[#4a9eff] hover:bg-[#3d8ae6] text-white rounded-lg transition-colors font-medium"
+                  >
+                    {isEditing ? 'Update' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
 
       {/* Quick View Modal */}
@@ -588,7 +634,7 @@ export default function UsersPage() {
                 {/* Full Name */}
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <label className="block text-sm font-medium text-gray-500 mb-2">
-                    Full Name
+                    Name
                   </label>
                   <p className="text-lg font-semibold text-gray-900">
                     {selectedUser.full_name}
@@ -648,23 +694,30 @@ export default function UsersPage() {
                 >
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    handleEditUser(selectedUser);
-                  }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit User
-                </button>
-                <button
-                  onClick={() => handleDeleteUser(selectedUser.id)}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
+                
+                {selectedUser?.id !== 1 && (
+  <>
+    <button
+      onClick={() => {
+        setShowViewModal(false);
+        handleEditUser(selectedUser);
+      }}
+      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+    >
+      <Edit className="w-4 h-4" />
+      Edit User
+    </button>
+
+    <button
+      onClick={() => handleDeleteUser(selectedUser.id)}
+      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+    >
+      <Trash2 className="w-4 h-4" />
+      Delete
+    </button>
+  </>
+)}
+
               </div>
             </div>
           </div>

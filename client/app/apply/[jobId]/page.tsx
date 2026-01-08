@@ -1,5 +1,5 @@
 // ============================================
-// FILE: app/apply/[jobId]/page.tsx (SIMPLIFIED - MATCHES YOUR SCHEMA)
+// FILE: app/apply/[jobId]/page.tsx (WITH OPTIONAL DOCUMENTS)
 // ============================================
 'use client';
 
@@ -15,8 +15,11 @@ import {
   ArrowLeft,
   Loader2,
   Building,
+  FileText,
+  Award,
 } from 'lucide-react';
 import { API_URL } from '@/app/config/constants';
+
 interface Job {
   id: number;
   title: string;
@@ -41,14 +44,22 @@ export default function JobApplicationPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Simplified form state - only what's in your schema
+  // Form state
   const [formData, setFormData] = useState({
     applicant_name: '',
     applicant_email: '',
   });
 
+  // File uploads - all optional
   const [resume, setResume] = useState<File | null>(null);
+  const [coe, setCoe] = useState<File | null>(null);
+  const [diploma, setDiploma] = useState<File | null>(null);
+  const [certifications, setCertifications] = useState<File[]>([]);
+
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [coeError, setCoeError] = useState<string | null>(null);
+  const [diplomaError, setDiplomaError] = useState<string | null>(null);
+  const [certsError, setCertsError] = useState<string | null>(null);
 
   useEffect(() => {
     loadJobDetails();
@@ -71,6 +82,23 @@ export default function JobApplicationPage() {
     }
   };
 
+  const validateFile = (file: File, setError: (msg: string | null) => void) => {
+    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a PDF, DOC, or DOCX file');
+      return false;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return false;
+    }
+
+    setError(null);
+    return true;
+  };
+
   const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setResumeError(null);
@@ -80,22 +108,59 @@ export default function JobApplicationPage() {
       return;
     }
 
-    // Validate file type
-    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!validTypes.includes(file.type)) {
-      setResumeError('Please upload a PDF, DOC, or DOCX file');
-      setResume(null);
+    if (validateFile(file, setResumeError)) {
+      setResume(file);
+    }
+  };
+
+  const handleCoeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setCoeError(null);
+
+    if (!file) {
+      setCoe(null);
       return;
     }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      setResumeError('File size must be less than 5MB');
-      setResume(null);
+    if (validateFile(file, setCoeError)) {
+      setCoe(file);
+    }
+  };
+
+  const handleDiplomaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setDiplomaError(null);
+
+    if (!file) {
+      setDiploma(null);
       return;
     }
 
-    setResume(file);
+    if (validateFile(file, setDiplomaError)) {
+      setDiploma(file);
+    }
+  };
+
+  const handleCertificationsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setCertsError(null);
+
+    if (files.length === 0) {
+      setCertifications([]);
+      return;
+    }
+
+    // Validate all files
+    const validFiles: File[] = [];
+    for (const file of files) {
+      if (validateFile(file, setCertsError)) {
+        validFiles.push(file);
+      } else {
+        return; // Stop if any file is invalid
+      }
+    }
+
+    setCertifications(validFiles);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,7 +169,7 @@ export default function JobApplicationPage() {
     setSubmitting(true);
 
     if (!resume) {
-      setError('Please upload your resume');
+      setError('Please upload your resume (required)');
       setSubmitting(false);
       return;
     }
@@ -115,6 +180,19 @@ export default function JobApplicationPage() {
       submitData.append('applicant_name', formData.applicant_name);
       submitData.append('applicant_email', formData.applicant_email);
       submitData.append('resume', resume);
+
+      // Add optional documents
+      if (coe) {
+        submitData.append('coe', coe);
+      }
+      if (diploma) {
+        submitData.append('diploma', diploma);
+      }
+      if (certifications.length > 0) {
+        certifications.forEach((cert, index) => {
+          submitData.append('certifications', cert);
+        });
+      }
 
       console.log('Submitting application to:', `${API_URL}/apply/${jobId}`);
 
@@ -196,7 +274,12 @@ export default function JobApplicationPage() {
             </ul>
           </div>
 
-      
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-3 bg-[#3F5357] text-white rounded-lg hover:bg-[#344447] transition-colors"
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     );
@@ -207,7 +290,6 @@ export default function JobApplicationPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
-        
           <h1 className="text-3xl font-bold text-gray-900">Apply for Position</h1>
           <p className="text-gray-600 mt-2">Fill out the form below to submit your application</p>
         </div>
@@ -306,20 +388,21 @@ export default function JobApplicationPage() {
               </div>
             </div>
 
-            {/* Resume Upload */}
-            <div className="space-y-4">
+            {/* Documents Upload Section */}
+            <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">
-                Resume/CV
+                Documents
               </h3>
 
+              {/* Resume Upload (Required) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Resume <span className="text-red-500">*</span>
+                  Resume/CV <span className="text-red-500">*</span>
                 </label>
                 <div className="mt-2">
-                  <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#3F5357] transition-colors bg-gray-50 hover:bg-gray-100">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#3F5357] transition-colors bg-gray-50 hover:bg-gray-100">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-12 h-12 text-gray-400 mb-3" />
+                      <Upload className="w-10 h-10 text-gray-400 mb-2" />
                       <p className="text-sm text-gray-600 mb-1">
                         {resume ? (
                           <span className="font-medium text-[#3F5357]">✓ {resume.name}</span>
@@ -344,6 +427,131 @@ export default function JobApplicationPage() {
                   <p className="text-sm text-red-600 mt-2">{resumeError}</p>
                 )}
               </div>
+
+              {/* Optional Documents Notice */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-900">Optional Documents</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      The following documents are optional but may strengthen your application and improve your AI score.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* COE Upload (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FileText className="inline w-4 h-4 mr-1" />
+                  Certificate of Employment (COE) 
+                  <span className="text-green-600 text-xs ml-2 font-normal">Optional - Bonus points</span>
+                </label>
+                <div className="mt-2">
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-gray-50 hover:bg-green-50">
+                    <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                      <FileText className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600">
+                        {coe ? (
+                          <span className="font-medium text-green-600">✓ {coe.name}</span>
+                        ) : (
+                          <span>Click to upload COE</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500">PDF, DOC, or DOCX (MAX. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleCoeChange}
+                    />
+                  </label>
+                </div>
+                {coeError && (
+                  <p className="text-sm text-red-600 mt-2">{coeError}</p>
+                )}
+              </div>
+
+              {/* Diploma Upload (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Award className="inline w-4 h-4 mr-1" />
+                  Diploma / Educational Certificate
+                  <span className="text-green-600 text-xs ml-2 font-normal">Optional - Bonus points</span>
+                </label>
+                <div className="mt-2">
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-gray-50 hover:bg-green-50">
+                    <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                      <Award className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600">
+                        {diploma ? (
+                          <span className="font-medium text-green-600">✓ {diploma.name}</span>
+                        ) : (
+                          <span>Click to upload diploma</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500">PDF, DOC, or DOCX (MAX. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleDiplomaChange}
+                    />
+                  </label>
+                </div>
+                {diplomaError && (
+                  <p className="text-sm text-red-600 mt-2">{diplomaError}</p>
+                )}
+              </div>
+
+              {/* Certifications Upload (Optional, Multiple) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Award className="inline w-4 h-4 mr-1" />
+                  Professional Certifications
+                  <span className="text-green-600 text-xs ml-2 font-normal">Optional - Bonus points</span>
+                </label>
+                <div className="mt-2">
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-400 transition-colors bg-gray-50 hover:bg-green-50">
+                    <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                      <Award className="w-8 h-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600">
+                        {certifications.length > 0 ? (
+                          <span className="font-medium text-green-600">
+                            ✓ {certifications.length} file{certifications.length > 1 ? 's' : ''} selected
+                          </span>
+                        ) : (
+                          <span>Click to upload certifications (multiple files allowed)</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500">PDF, DOC, or DOCX (MAX. 5MB each)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleCertificationsChange}
+                      multiple
+                    />
+                  </label>
+                </div>
+                {certifications.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    <p className="font-medium mb-1">Selected files:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {certifications.map((cert, idx) => (
+                        <li key={idx}>{cert.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {certsError && (
+                  <p className="text-sm text-red-600 mt-2">{certsError}</p>
+                )}
+              </div>
             </div>
 
             {/* AI Notice */}
@@ -356,8 +564,9 @@ export default function JobApplicationPage() {
                   <h4 className="font-semibold text-blue-900 mb-1">AI-Powered Review</h4>
                   <p className="text-sm text-blue-700">
                     Your resume will be automatically analyzed by our AI system to match your 
-                    qualifications with the job requirements. This ensures fast and fair evaluation 
-                    for all applicants.
+                    qualifications with the job requirements. Optional documents (COE, diploma, 
+                    certifications) can boost your score by demonstrating additional qualifications 
+                    and credibility.
                   </p>
                 </div>
               </div>

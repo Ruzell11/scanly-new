@@ -83,7 +83,7 @@ export default function AdminDashboard() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white mt-20 lg:mt-0 lg:ml-72">
         <div className="max-w-7xl mx-auto p-8">
           {/* Welcome Card */}
           <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl p-8 mb-8 shadow-lg">
@@ -98,12 +98,12 @@ export default function AdminDashboard() {
           {/* Stats Overview */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <StatCard
+              {/* <StatCard
                 icon={<Building2 className="w-6 h-6" />}
                 label="Total Companies"
                 value={stats.total_companies}
                 color="from-blue-500 to-blue-600"
-              />
+              /> */}
               <StatCard
                 icon={<Users className="w-6 h-6" />}
                 label="Total Users"
@@ -142,13 +142,13 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">System Overview</h2>
             <div className="bg-white/95 rounded-3xl p-8 shadow-xl border border-gray-100">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <JobCard
+                {/* <JobCard
                   icon="💼"
                   title="Active Companies"
                   type="Organizations"
                   candidates={`${stats?.total_companies || 0} Total`}
                   onClick={() => router.push('/admin/companies')}
-                />
+                /> */}
                 <JobCard
                   icon="👥"
                   title="System Users"
@@ -177,13 +177,13 @@ export default function AdminDashboard() {
           {/* Quick Actions */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <ActionCard
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* <ActionCard
                 title="Create Company"
                 description="Add a new company to the system"
                 icon="🏢"
                 onClick={() => router.push('/admin/companies')}
-              />
+              /> */}
               <ActionCard
                 title="Add User"
                 description="Create a new user account"

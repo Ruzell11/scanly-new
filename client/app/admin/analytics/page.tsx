@@ -101,7 +101,7 @@ export default function AdminAnalytics() {
         userName={userName}
         userEmail={userEmail}
       />
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white lg:ml-72">
         <div className="max-w-7xl mx-auto p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">📊 Admin Analytics Dashboard</h1>
           <p className="text-gray-600 mb-10">
@@ -253,10 +253,10 @@ export default function AdminAnalytics() {
                   label="Avg Users/Company" 
                   value={analytics.total_companies > 0 ? (analytics.total_users / analytics.total_companies).toFixed(1) : '0'} 
                 />
-                <MetricRow 
+                {/* <MetricRow 
                   label="Companies with Jobs" 
                   value={`${analytics.total_companies > 0 ? ((analytics.total_jobs / analytics.total_companies) * 100).toFixed(0) : 0}%`} 
-                />
+                /> */}
                 <MetricRow 
                   label="Application Processing Rate" 
                   value={`${analytics.total_applications > 0 ? ((processedApplications / analytics.total_applications) * 100).toFixed(1) : 0}%`} 
@@ -271,10 +271,10 @@ export default function AdminAnalytics() {
                   label="Draft Jobs" 
                   value={`${draftJobs}`} 
                 />
-                <MetricRow 
+                {/* <MetricRow 
                   label="Jobs per Company" 
                   value={analytics.total_companies > 0 ? (analytics.total_jobs / analytics.total_companies).toFixed(1) : '0'} 
-                />
+                /> */}
                 <MetricRow 
                   label="Apps per Active Job" 
                   value={analytics.active_jobs > 0 ? (analytics.total_applications / analytics.active_jobs).toFixed(1) : '0'} 

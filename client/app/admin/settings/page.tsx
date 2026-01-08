@@ -190,7 +190,7 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex  ">
       {/* Sidebar */}
       <Sidebar
         activeMenu="settings"
@@ -200,7 +200,7 @@ export default function AccountSettingsPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-white">
+      <main className="flex-1 overflow-auto bg-white mt-20 lg:ml-72">
         <div className="max-w-4xl mx-auto p-8">
           {/* Header */}
           <div className="mb-8">

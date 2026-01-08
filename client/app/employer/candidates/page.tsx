@@ -47,7 +47,7 @@ interface Candidate {
   location?: string;
   skills?: string[];
   ai_score?: number;
-  ai_summary?: string;
+  ai_feedback?: string;
 }
 
 export default function EmployerCandidatesPage() {
@@ -110,6 +110,7 @@ export default function EmployerCandidatesPage() {
 
       const data = await response.json();
       setCandidates(data);
+
     } catch (error: any) {
       console.error('Error loading candidates:', error);
       setError(error.message || 'Failed to load candidates');
@@ -170,6 +171,7 @@ export default function EmployerCandidatesPage() {
   };
 
   const handleViewCandidate = (candidate: Candidate) => {
+
     setSelectedCandidate(candidate);
     setShowViewModal(true);
   };
@@ -229,7 +231,7 @@ export default function EmployerCandidatesPage() {
              userEmail={userEmail}
            />
 
-      <div className="flex-1 p-8">
+      <div className="flex-1 p-8 mt-20 lg:mt-0 lg:ml-72">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Candidate Management</h1>
@@ -381,6 +383,7 @@ export default function EmployerCandidatesPage() {
                           year: 'numeric',
                         })}
                       </td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap">
                         {candidate.ai_score ? (
                           <div className="flex items-center gap-2">
@@ -558,33 +561,33 @@ export default function EmployerCandidatesPage() {
               </div>
 
               {/* AI Analysis */}
-              {selectedCandidate.ai_score && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-200 mb-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-bold text-indigo-900 mb-1">
-                        🤖 AI Match Analysis
-                      </h3>
-                      <p className="text-sm text-indigo-600">
-                        Automated resume analysis and job fit assessment
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-indigo-900">
-                        {selectedCandidate.ai_score}%
-                      </div>
-                      <p className="text-xs text-indigo-600">Match Score</p>
-                    </div>
-                  </div>
-                  {selectedCandidate.ai_summary && (
-                    <div className="bg-white rounded-lg p-4 border border-indigo-200">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        {selectedCandidate.ai_summary}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+            {selectedCandidate.ai_score && (
+  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-200 mb-6">
+    <div className="flex items-start justify-between mb-4">
+      <div>
+        <h3 className="text-lg font-bold text-indigo-900 mb-1">
+          🤖 AI Match Analysis
+        </h3>
+        <p className="text-sm text-indigo-600">
+          Automated resume analysis and job fit assessment
+        </p>
+      </div>
+      <div className="text-right">
+        <div className="text-3xl font-bold text-indigo-900">
+          {selectedCandidate.ai_score}%
+        </div>
+        <p className="text-xs text-indigo-600">Match Score</p>
+      </div>
+    </div>
+
+ <div className="bg-white rounded-lg p-4 border border-indigo-200 whitespace-pre-line">
+    <p className="text-sm text-gray-700 leading-relaxed">
+             {selectedCandidate.ai_feedback}
+    </p>
+  </div>
+
+  </div>
+)}
 
               {/* Skills */}
               {selectedCandidate.skills && selectedCandidate.skills.length > 0 && (
