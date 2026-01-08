@@ -50,6 +50,9 @@ async def submit_application(
     applicant_name: str = Form(...),
     applicant_email: EmailStr = Form(...),
     resume: UploadFile = File(...),
+    coe: Optional[UploadFile] = File(None),
+    diploma: Optional[UploadFile] = File(None),
+    certifications: Optional[List[UploadFile]] = File(None),
     phone: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
     experience_years: Optional[int] = Form(None),
@@ -63,7 +66,10 @@ async def submit_application(
     """
     Submit a job application - NO AUTHENTICATION REQUIRED
     Anonymous applicants can apply without creating an account
+    Supports optional document uploads: COE, Diploma, and Certifications
     """
+    from utils import extract_text_from_resume, ai_candidate_scoring
+    
     # Verify job exists
     job = db.query(Job).filter(Job.id == job_id, Job.status == "active").first()
     if not job:
@@ -80,30 +86,64 @@ async def submit_application(
     if existing_application:
         raise HTTPException(status_code=400, detail="You have already applied for this position")
 
-    # Validate resume file type
-    if not resume.filename.lower().endswith(('.pdf', '.doc', '.docx')):
-        raise HTTPException(status_code=400, detail="Resume must be in PDF, DOC, or DOCX format")
+    # Helper function to validate and save files
+    async def save_document(file: UploadFile, doc_type: str) -> tuple[str, str]:
+        """Save document and return (file_path, file_url)"""
+        if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"{doc_type} must be in PDF, DOC, or DOCX format"
+            )
+        
+        content = await file.read()
+        upload_dir = f"uploads/{doc_type.lower()}"
+        os.makedirs(upload_dir, exist_ok=True)
 
-    # Read and save resume locally
-    resume_content = await resume.read()
-    upload_dir = "uploads/resumes"
-    os.makedirs(upload_dir, exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        safe_email = applicant_email.replace('@', '_at_').replace('.', '_')
+        safe_filename = f"{job_id}_{safe_email}_{timestamp}_{file.filename}"
+        file_path = os.path.join(upload_dir, safe_filename)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    safe_email = applicant_email.replace('@', '_at_').replace('.', '_')
-    safe_filename = f"{job_id}_{safe_email}_{timestamp}_{resume.filename}"
-    file_path = os.path.join(upload_dir, safe_filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
 
-    with open(file_path, "wb") as f:
-        f.write(resume_content)
+        return file_path, f"/{upload_dir}/{safe_filename}"
 
-    resume_url = f"/{upload_dir}/{safe_filename}"
+    # Save all documents and extract text
+    documents = {
+        'resume': {'file': resume, 'type': 'resumes', 'required': True},
+        'coe': {'file': coe, 'type': 'coe', 'required': False},
+        'diploma': {'file': diploma, 'type': 'diploma', 'required': False},
+    }
+    
+    doc_data = {}
+    
+    # Process single file documents
+    for doc_name, doc_info in documents.items():
+        file = doc_info['file']
+        if file and file.filename:
+            file_path, file_url = await save_document(file, doc_info['type'])
+            doc_data[doc_name] = {
+                'path': file_path,
+                'url': file_url,
+                'text': extract_text_from_resume(file_path)
+            }
+        elif doc_info['required']:
+            raise HTTPException(status_code=400, detail=f"{doc_name.title()} is required")
+        else:
+            doc_data[doc_name] = {'path': None, 'url': None, 'text': ''}
 
-    # Extract readable text from the resume
-    from utils import extract_text_from_resume, ai_candidate_scoring  # ✅ make sure both exist
-    resume_text = extract_text_from_resume(file_path)
+    # Process certifications (multiple files)
+    doc_data['certifications'] = {'paths': [], 'urls': [], 'texts': []}
+    if certifications:
+        for cert_file in certifications:
+            if cert_file and cert_file.filename:
+                cert_path, cert_url = await save_document(cert_file, 'certifications')
+                doc_data['certifications']['paths'].append(cert_path)
+                doc_data['certifications']['urls'].append(cert_url)
+                doc_data['certifications']['texts'].append(extract_text_from_resume(cert_path))
 
-    # Parse skills (accept JSON array or comma-separated)
+    # Parse skills
     skills_list = None
     if skills:
         try:
@@ -111,7 +151,7 @@ async def submit_application(
         except Exception:
             skills_list = [s.strip() for s in skills.split(',') if s.strip()]
 
-    # Prepare job context
+    # Build job description
     job_description = f"""
 Job Title: {job.title}
 Location: {job.location}
@@ -124,40 +164,69 @@ Requirements:
 {job.requirements}
 """
 
-    # Prepare candidate context
-    candidate_profile = f"""
-Candidate Name: {applicant_name}
-Email: {applicant_email}
-Phone: {phone or 'Not provided'}
-Location: {location or 'Not specified'}
-Experience: {experience_years or 0} years
-Education: {education or 'Not specified'}
-Skills: {', '.join(skills_list) if skills_list else 'Not specified'}
-LinkedIn: {linkedin_url or 'Not provided'}
-Portfolio: {portfolio_url or 'Not provided'}
+    # Build comprehensive resume text with all documents
+    all_documents_sections = [
+        ("RESUME", doc_data['resume']['text']),
+        ("CERTIFICATE OF EMPLOYMENT", doc_data['coe']['text']),
+        ("DIPLOMA/EDUCATIONAL CERTIFICATE", doc_data['diploma']['text']),
+        ("PROFESSIONAL CERTIFICATIONS", "\n\n---\n\n".join(doc_data['certifications']['texts']))
+    ]
+    
+    all_documents_text = "\n\n".join(
+        f"=== {title} ===\n{text}" 
+        for title, text in all_documents_sections if text
+    )
 
-Resume Content:
-{resume_text[:3000]}
+    # Configure AI scoring
+    required_documents = {
+        "coe": False,
+        "diploma": False,
+        "certifications": False
+    }
 
-Cover Letter:
-{cover_letter or 'Not provided'}
-"""
+    weight_config = {
+        "skills": 0.35,
+        "experience": 0.25,
+        "education": 0.20,
+        "documents": 0.15,
+        "presentation": 0.05
+    }
 
-    # Run AI scoring with resume filename
+    # Run AI scoring
     try:
-        ai_result = ai_candidate_scoring(job_description, resume_text, resume.filename)
+        ai_result = ai_candidate_scoring(
+            job_description=job_description,
+            resume_text=all_documents_text,
+            filename=resume.filename,
+            required_documents=required_documents,
+            weight_config=weight_config
+        )
+        
         ai_score = ai_result.get("score", 0)
         ai_feedback = ai_result.get("feedback", "")
+        document_status = ai_result.get("document_status", {})
+        missing_docs = ai_result.get("missing_required_documents", [])
+        document_compliance = ai_result.get("document_compliance", True)
+        
+        # Note: AI feedback already includes document status from the AI analysis
+        # No need to append it again here
+        
     except Exception as e:
         print(f"AI scoring error: {e}")
         ai_score = None
-        ai_feedback = "AI analysis unavailable"
+        ai_feedback = f"AI analysis unavailable: {str(e)}"
+        document_compliance = False
 
     # Determine initial status
-    if ai_score is not None and ai_score >= 80:
-        initial_status = "shortlisted"
-    elif ai_score is not None and ai_score >= 60:
-        initial_status = "reviewing"
+    if ai_score is not None:
+        if not document_compliance:
+            initial_status = "pending"
+        elif ai_score >= 80:
+            initial_status = "shortlisted"
+        elif ai_score >= 60:
+            initial_status = "reviewing"
+        else:
+            initial_status = "pending"
     else:
         initial_status = "pending"
 
@@ -166,7 +235,7 @@ Cover Letter:
         job_id=job_id,
         applicant_name=applicant_name,
         applicant_email=applicant_email,
-        resume_url=resume_url,
+        resume_url=doc_data['resume']['url'],
         ai_score=ai_score,
         ai_feedback=ai_feedback,
         status=initial_status,
@@ -177,8 +246,26 @@ Cover Letter:
     db.commit()
     db.refresh(application)
 
+    # Build response message
+    response_parts = ["Application submitted successfully! We'll review your application and get back to you soon."]
+    
+    uploaded_docs = []
+    if doc_data['coe']['url']:
+        uploaded_docs.append("✓ Certificate of Employment")
+    if doc_data['diploma']['url']:
+        uploaded_docs.append("✓ Diploma/Educational Certificate")
+    if doc_data['certifications']['urls']:
+        uploaded_docs.append(f"✓ {len(doc_data['certifications']['urls'])} Professional Certification(s)")
+    
+    if uploaded_docs:
+        response_parts.append("\n\nDocuments received:")
+        response_parts.extend([f"\n{doc}" for doc in uploaded_docs])
+    
+    if ai_score and ai_score >= 70:
+        response_parts.append("\n\nYour application shows strong alignment with our requirements!")
+
     return ApplicationSubmitResponse(
-        message="Application submitted successfully! We'll review your application and get back to you soon.",
+        message="".join(response_parts),
         application_id=application.id,
         job_title=job.title,
         company_name=company.name if company else "Unknown Company",
@@ -186,7 +273,6 @@ Cover Letter:
         status=initial_status,
         applied_at=application.applied_at
     )
-
 
 @router.get("/jobs/search", response_model=List[PublicJobResponse])
 def search_public_jobs(

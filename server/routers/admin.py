@@ -291,23 +291,43 @@ def get_all_jobs(
         for job in jobs
     ]
 
-@router.patch("/jobs/{job_id}/status")
+@router.put("/jobs/{job_id}/status")
 def update_job_status(
     job_id: int,
-    status: str,  # Query parameter
+    status: str,  # Query parameter ?status=active
     current_user: User = Depends(check_admin),
     db: Session = Depends(get_db)
 ):
-    """Admin can update any job status"""
-    job = db.query(Job).filter(Job.id == job_id).first()
+    """
+    Update the status of a specific job.
+    Example: PUT /employer/jobs/123/status?status=active
+    """
+    # Fetch the job
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    if status not in ["active", "closed", "draft", "suspended"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-    
+
+    # Allowed statuses
+    valid_statuses = ["draft", "active", "suspended", "closed"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+
+    # Optional: prevent employer from suspending directly
+  
+
+    # Update job status
     job.status = status
     db.commit()
     db.refresh(job)
-    
-    return {"message": "Job status updated successfully", "status": status}
+
+    return {
+        "message": "Job status updated successfully",
+        "job_id": job.id,
+        "new_status": job.status
+    }

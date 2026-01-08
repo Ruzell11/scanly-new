@@ -43,7 +43,7 @@ class Job(Base):
     location = Column(String(255), nullable=False)
     salary_range = Column(String(100), nullable=True)
     employment_type = Column(String(50), nullable=False)
-    status = Column(String(50), default="active")  # 'active', 'closed'
+    status = Column(String(50), default="draft")  # 'active', 'closed'
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     apply_link = Column(String(500), nullable=True)

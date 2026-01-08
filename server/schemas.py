@@ -182,6 +182,7 @@ class CandidateListResponse(BaseModel):
     status: str
     ai_score: Optional[float]
     applied_at: datetime
+    ai_feedback: str
 
 
     class Config:

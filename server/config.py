@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # Gemini Configuration
-    GEMINI_API_KEY: str
+    OPENAI_API_KEY: str
 
     # Frontend
     FRONTEND_LINK: str = "http://localhost:3000"
