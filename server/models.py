@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -31,6 +31,7 @@ class User(Base):
 
     company = relationship("Company", back_populates="users")
     jobs = relationship("Job", back_populates="creator")
+   
 
 
 class Job(Base):
@@ -68,6 +69,7 @@ class Application(Base):
     status = Column(String(50), default="pending")  # 'pending', 'shortlisted', 'rejected'
     applied_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     job = relationship("Job", back_populates="applications")
 
 

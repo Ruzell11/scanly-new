@@ -4,6 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import update
 from pydantic import EmailStr
 from typing import Optional, List
 import json
@@ -11,7 +12,7 @@ import os
 from datetime import datetime
 
 from database import get_db
-from models import Job, Application, Company
+from models import Job, Application, Company, User
 from schemas import PublicJobResponse, ApplicationSubmitResponse
 from utils import ai_candidate_scoring
 
@@ -346,3 +347,26 @@ def check_application_status(job_id: int, email: EmailStr, db: Session = Depends
         "applied_at": application.applied_at,
         "message": "You have already applied for this position"
     }
+
+@router.patch("/users/delete/{user_id}")
+def soft_delete_user(user_id: int, db: Session = Depends(get_db)):
+    """
+    Soft delete a user by setting is_deleted=True using only user ID
+    """
+    try:
+        stmt = (
+            update(Application)
+            .where(Application.id == user_id)
+            .values(is_deleted=True)
+        )
+        result = db.execute(stmt)
+        db.commit()
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {"status": "success", "message": f"User {user_id} soft-deleted."}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

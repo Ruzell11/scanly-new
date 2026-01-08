@@ -169,109 +169,6 @@ def delete_job_post(
 # CANDIDATES/APPLICATION ENDPOINTS
 # ============================================
 
-@router.get("/candidates", response_model=List[CandidateListResponse])
-def get_all_candidates(
-        status: Optional[str] = Query(None, pattern="^(pending|reviewing|shortlisted|rejected|hired)$"),
-        job_id: Optional[int] = None,
-        min_ai_score: Optional[float] = Query(None, ge=0, le=100),
-        search: Optional[str] = None,
-        sort_by: str = Query("applied_at", pattern="^(applied_at|ai_score|applicant_name)$"),
-        sort_order: str = Query("desc", pattern="^(asc|desc)$"),
-        current_user: User = Depends(check_employer),
-        db: Session = Depends(get_db)
-):
-    """
-    Get all candidates/applications for the employer's company
-    This is the main endpoint for the candidates page
-    """
-    print(f"[DEBUG] Fetching candidates for company_id: {current_user.company_id}")
-
-    if not current_user.company_id:
-        print("[DEBUG] No company_id found, returning empty list")
-        return []
-
-    # Get all job IDs for the company
-    job_ids = db.query(Job.id).filter(Job.company_id == current_user.company_id).all()
-    job_ids = [job[0] for job in job_ids]
-
-    print(f"[DEBUG] Found {len(job_ids)} jobs for company: {job_ids}")
-
-    if not job_ids:
-        print("[DEBUG] No jobs found, returning empty list")
-        return []
-
-    # Check if there are any applications at all
-    total_applications = db.query(Application).filter(Application.job_id.in_(job_ids)).count()
-    print(f"[DEBUG] Total applications for these jobs: {total_applications}")
-
-    # Base query with join to get job title
-    query = db.query(
-        Application.id,
-        Application.applicant_name.label('full_name'),
-        Application.applicant_email.label('email'),
-        Application.job_id,
-        Job.title.label('job_title'),
-        Application.status,
-        Application.ai_score,
-        Application.applied_at,
-        Application.ai_feedback,
-    ).join(Job, Application.job_id == Job.id).filter(
-        Application.job_id.in_(job_ids)
-    )
-
-    # Apply filters
-    if status:
-        print(f"[DEBUG] Filtering by status: {status}")
-        query = query.filter(Application.status == status)
-
-    if job_id:
-        print(f"[DEBUG] Filtering by job_id: {job_id}")
-        query = query.filter(Application.job_id == job_id)
-
-    if min_ai_score is not None:
-        print(f"[DEBUG] Filtering by min_ai_score: {min_ai_score}")
-        query = query.filter(Application.ai_score >= min_ai_score)
-
-    if search:
-        print(f"[DEBUG] Searching for: {search}")
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Application.applicant_name.ilike(search_term)) |
-            (Application.applicant_email.ilike(search_term)) |
-            (Job.title.ilike(search_term))
-        )
-
-    # Apply sorting
-    if sort_by == "applied_at":
-        query = query.order_by(desc(Application.applied_at) if sort_order == "desc" else asc(Application.applied_at))
-    elif sort_by == "ai_score":
-        query = query.order_by(desc(Application.ai_score) if sort_order == "desc" else asc(Application.ai_score))
-    elif sort_by == "applicant_name":
-        query = query.order_by(
-            desc(Application.applicant_name) if sort_order == "desc" else asc(Application.applicant_name))
-
-    candidates = query.all()
-    print(f"[DEBUG] Found {len(candidates)} candidates after filters")
-
-    # Convert to list of dicts for response
-    result = [
-    {
-        "id": c.id,
-        "full_name": c.full_name,
-        "email": c.email,
-        "job_id": c.job_id,
-        "job_title": c.job_title,
-        "status": c.status,
-        "ai_score": c.ai_score,
-        "ai_feedback": c.ai_feedback,  # <-- add this
-        "applied_at": c.applied_at,
-    }
-    for c in candidates
-]
-
-    print(f"[DEBUG] Returning {len(result)} candidates")
-    return result
-
 
 @router.get("/candidates/{candidate_id}", response_model=CandidateDetailResponse)
 def get_candidate_details(
@@ -1124,7 +1021,8 @@ def get_all_candidates(
         Application.applied_at,
         Application.ai_feedback,
     ).join(Job, Application.job_id == Job.id).filter(
-        Application.job_id.in_(job_ids)
+        Application.job_id.in_(job_ids),
+        Application.is_deleted == False
     )
 
     # Apply filters
