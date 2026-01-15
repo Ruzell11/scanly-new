@@ -141,27 +141,33 @@ export default function JobApplicationPage() {
     }
   };
 
-  const handleCertificationsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setCertsError(null);
+const handleCertificationsChange = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  setCertsError(null);
 
-    if (files.length === 0) {
-      setCertifications([]);
-      return;
+  const fileList = e.target.files;
+  if (!fileList) {
+    setCertifications([]);
+    return;
+  }
+
+  // Always convert to array (even if only one file)
+  const files: File[] = Array.from(fileList);
+
+  // Validate all files
+  const validFiles: File[] = [];
+  for (const file of files) {
+    if (!validateFile(file, setCertsError)) {
+      return; // stop if any file is invalid
     }
+    validFiles.push(file);
+  }
 
-    // Validate all files
-    const validFiles: File[] = [];
-    for (const file of files) {
-      if (validateFile(file, setCertsError)) {
-        validFiles.push(file);
-      } else {
-        return; // Stop if any file is invalid
-      }
-    }
+  // ALWAYS an array
+  setCertifications(validFiles);
+};
 
-    setCertifications(validFiles);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,10 +194,9 @@ export default function JobApplicationPage() {
       if (diploma) {
         submitData.append('diploma', diploma);
       }
-      if (certifications.length > 0) {
-        certifications.forEach((cert, index) => {
-          submitData.append('certifications', cert);
-        });
+      if (certifications) {
+         submitData.append('certifications', certifications[0]);
+      
       }
 
       console.log('Submitting application to:', `${API_URL}/apply/${jobId}`);
@@ -564,8 +569,7 @@ export default function JobApplicationPage() {
                   <h4 className="font-semibold text-blue-900 mb-1">AI-Powered Review</h4>
                   <p className="text-sm text-blue-700">
                     Your resume will be automatically analyzed by our AI system to match your 
-                    qualifications with the job requirements. Optional documents (COE, diploma, 
-                    certifications) can boost your score by demonstrating additional qualifications 
+                    qualifications with the job requirements. Optional documents (COE, diploma, certifications) can boost your score by demonstrating additional qualifications 
                     and credibility.
                   </p>
                 </div>
