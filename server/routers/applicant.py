@@ -53,7 +53,7 @@ async def submit_application(
     resume: UploadFile = File(...),
     coe: Optional[UploadFile] = File(None),
     diploma: Optional[UploadFile] = File(None),
-    certifications: Optional[List[UploadFile]] = File(None),
+    certifications: Optional[UploadFile] = File(None),
     phone: Optional[str] = Form(None),
     location: Optional[str] = Form(None),
     experience_years: Optional[int] = Form(None),
@@ -135,14 +135,14 @@ async def submit_application(
             doc_data[doc_name] = {'path': None, 'url': None, 'text': ''}
 
     # Process certifications (multiple files)
-    doc_data['certifications'] = {'paths': [], 'urls': [], 'texts': []}
-    if certifications:
-        for cert_file in certifications:
-            if cert_file and cert_file.filename:
-                cert_path, cert_url = await save_document(cert_file, 'certifications')
-                doc_data['certifications']['paths'].append(cert_path)
-                doc_data['certifications']['urls'].append(cert_url)
-                doc_data['certifications']['texts'].append(extract_text_from_resume(cert_path))
+    # Certifications - single file
+    doc_data['certifications'] = {'path': None, 'url': None, 'text': ''}
+    if certifications and certifications.filename:
+            cert_path, cert_url = await save_document(certifications, "certifications")
+            doc_data['certifications']['path'] = cert_path
+            doc_data['certifications']['url'] = cert_url
+            doc_data['certifications']['text'] = extract_text_from_resume(cert_path)
+
 
     # Parse skills
     skills_list = None
@@ -170,13 +170,14 @@ Requirements:
         ("RESUME", doc_data['resume']['text']),
         ("CERTIFICATE OF EMPLOYMENT", doc_data['coe']['text']),
         ("DIPLOMA/EDUCATIONAL CERTIFICATE", doc_data['diploma']['text']),
-        ("PROFESSIONAL CERTIFICATIONS", "\n\n---\n\n".join(doc_data['certifications']['texts']))
+        ("PROFESSIONAL CERTIFICATIONS", doc_data['certifications']['text'])
     ]
-    
+
     all_documents_text = "\n\n".join(
         f"=== {title} ===\n{text}" 
         for title, text in all_documents_sections if text
     )
+
 
     # Configure AI scoring
     required_documents = {
@@ -255,9 +256,9 @@ Requirements:
         uploaded_docs.append("✓ Certificate of Employment")
     if doc_data['diploma']['url']:
         uploaded_docs.append("✓ Diploma/Educational Certificate")
-    if doc_data['certifications']['urls']:
-        uploaded_docs.append(f"✓ {len(doc_data['certifications']['urls'])} Professional Certification(s)")
-    
+    if doc_data['certifications']['url']:
+        uploaded_docs.append("✓ Professional Certification")
+
     if uploaded_docs:
         response_parts.append("\n\nDocuments received:")
         response_parts.extend([f"\n{doc}" for doc in uploaded_docs])
