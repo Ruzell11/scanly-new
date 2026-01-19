@@ -178,6 +178,7 @@ export default function EmployerCandidatesPage() {
     shortlisted: 'bg-purple-100 text-purple-800',
     rejected: 'bg-red-100 text-red-800',
     hired: 'bg-green-100 text-green-800',
+      offer: 'bg-green-100 text-green-800',
   }[status] || 'bg-gray-100 text-gray-800');
 
   const getStatusIcon = (status: string) => ({
@@ -186,6 +187,7 @@ export default function EmployerCandidatesPage() {
     shortlisted: <Star className="w-4 h-4" />,
     rejected: <XCircle className="w-4 h-4" />,
     hired: <CheckCircle className="w-4 h-4" />,
+     offer: <CheckCircle className="w-4 h-4" />,
   }[status] || <AlertCircle className="w-4 h-4" />);
 
   const filteredCandidates = candidates.filter((candidate) => {
