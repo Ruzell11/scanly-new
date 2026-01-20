@@ -194,10 +194,11 @@ const handleCertificationsChange = (
       if (diploma) {
         submitData.append('diploma', diploma);
       }
-      if (certifications) {
-         submitData.append('certifications', certifications[0]);
-      
-      }
+
+     if (certifications && certifications.length > 0) {
+      submitData.append('certifications', certifications[0]);
+    }
+
 
       console.log('Submitting application to:', `${API_URL}/apply/${jobId}`);
 

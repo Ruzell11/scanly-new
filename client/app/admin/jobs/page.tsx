@@ -381,7 +381,7 @@ const totalPages = Math.ceil(jobs.length / jobsPerPage);
 </button>
 
 {/* Make Active (ONLY draft or closed) */}
-{['draft', 'open'].includes(job.status) && (
+{['draft', 'open','suspended'].includes(job.status) && (
   <button
     onClick={() => confirmUpdateStatus(job, 'active')}
     className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -392,7 +392,7 @@ const totalPages = Math.ceil(jobs.length / jobsPerPage);
 )}
 
 {/* Suspend (ONLY if NOT suspended) */}
-{job.status !== 'open' && (
+{job.status !== 'suspended' && (
   <button
     onClick={() => confirmUpdateStatus(job, 'suspended')}
     className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
