@@ -478,8 +478,174 @@ export default function EmployerJobs() {
         </button>
       </div>
     )}
+
+       {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2d4a52] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  {isEditing ? 'Edit Job Opening' : 'Create a New Job Opening'}
+                </h2>
+                <p className="text-white/60 text-sm">
+                  Provide clear and effective details to hire talents
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateJob} className="space-y-6">
+                {formError && (
+                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                    {formError}
+                  </div>
+                )}
+
+                {/* Job Position */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Job Position
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="E.g Software Engineer"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                  />
+                </div>
+
+                {/* Job Description */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Job Description
+                    <span className="float-right text-white/60">{formData.description.length}/1500</span>
+                  </label>
+                  <textarea
+                    placeholder="Use text points to highlight key responsibilities and requirements"
+                    required
+                    rows={5}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    maxLength={1500}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882] resize-none"
+                  />
+                </div>
+
+                {/* Requirements */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Requirements
+                  </label>
+                  <textarea
+                    placeholder="List the key requirements and qualifications"
+                    required
+                    rows={3}
+                    value={formData.requirements}
+                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882] resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Employment Type */}
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                      Employment Type
+                    </label>
+                    <select
+                      value={formData.employment_type}
+                      onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
+                    >
+                      <option value="full-time">Full-Time</option>
+                      <option value="part-time">Part-Time</option>
+                      <option value="contract">Contract</option>
+                    </select>
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="E.g Remote, New York"
+                      required
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                    />
+                  </div>
+                </div>
+
+                {/* Salary Range */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Salary Range (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="E.g $80k - $120k"
+                    value={formData.salary_range}
+                    onChange={(e) => setFormData({ ...formData, salary_range: e.target.value })}
+                    className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-[#5a7882]"
+                  />
+                </div>
+
+                {/* Job Status - Only show when editing and NOT suspended */}
+                {isEditing && formData.status !== 'suspended' && (
+                  <div>
+                    <label className="block text-white text-sm font-medium mb-2">
+                      Job Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#3d5a62] border border-[#4a6872] rounded-lg text-white focus:outline-none focus:border-[#5a7882]"
+                    >
+                      <option value="active">Active</option>
+                      <option value="closed">Closed</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                    <p className="mt-2 text-xs text-white/60">
+                      {formData.status === 'active' && '✓ Job is visible to applicants'}
+                      {formData.status === 'closed' && '✗ Job is closed and not accepting applications'}
+                      {formData.status === 'draft' && '📝 Job is saved as draft'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setFormError('');
+                      setIsEditing(false);
+                      resetForm();
+                    }}
+                    className="flex-1 px-6 py-3 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 bg-[#4a9eff] hover:bg-[#3d8ae6] text-white rounded-lg transition-colors font-medium"
+                  >
+                    {isEditing ? 'Update' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
   </main>
 </div>
+
+
 
   );
 }
